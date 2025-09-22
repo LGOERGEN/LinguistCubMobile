@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -118,7 +119,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.content}>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <Text style={styles.label}>Name *</Text>
               <TextInput
@@ -191,7 +192,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
 
           <View style={styles.footer}>
             <TouchableOpacity
@@ -222,21 +223,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.sm,
   },
   modal: {
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.lg,
     width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    minHeight: '70%',
     ...shadows.lg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -254,10 +256,12 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   content: {
-    padding: theme.spacing.lg,
+    flex: 1,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   label: {
     fontSize: theme.fontSizes.md,
@@ -324,8 +328,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    padding: theme.spacing.lg,
-    paddingTop: 0,
+    padding: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
     gap: theme.spacing.md,
   },
   button: {

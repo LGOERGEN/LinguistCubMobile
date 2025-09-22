@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  FlatList,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { RootStackParamList, Child } from '../types';
 import { dataService } from '../services/dataService';
 import { theme, shadows } from '../constants/theme';
+import LiveStatsComponent from '../components/LiveStatsComponent';
+import AddWordModal from '../components/AddWordModal';
 
 type Props = StackScreenProps<RootStackParamList, 'Categories'>;
 
@@ -22,14 +26,36 @@ interface CategoryInfo {
   emoji: string;
 }
 
+interface WordItem {
+  word: string;
+  understanding: boolean;
+  speaking: boolean;
+  firstSpokenAge: number | null;
+}
+
 const CategoriesScreen: React.FC<Props> = ({ route, navigation }) => {
   const { language } = route.params;
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [words, setWords] = useState<WordItem[]>([]);
+  const [showAddWordModal, setShowAddWordModal] = useState(false);
 
   useEffect(() => {
     loadData();
   }, [language]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [language])
+  );
+
+  useEffect(() => {
+    if (activeChild) {
+      loadWordsForCategory(selectedCategory);
+    }
+  }, [selectedCategory, activeChild]);
 
   const loadData = async () => {
     try {
@@ -58,6 +84,98 @@ const CategoriesScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const loadWordsForCategory = (categoryKey: string) => {
+    if (!activeChild) return;
+
+    const categoryData = activeChild.categories[language];
+    let allWords: WordItem[] = [];
+
+    if (categoryKey === 'all') {
+      Object.values(categoryData).forEach(category => {
+        allWords = allWords.concat(category.words);
+      });
+    } else if (categoryKey === 'other') {
+      if (categoryData.other) {
+        allWords = categoryData.other.words;
+      }
+    } else {
+      if (categoryData[categoryKey]) {
+        allWords = categoryData[categoryKey].words;
+      }
+    }
+
+    setWords(allWords);
+  };
+
+  const handleAddWord = async (word: string, categoryKey: string) => {
+    if (!activeChild) return;
+
+    try {
+      await dataService.addCustomWord(activeChild.id, language, categoryKey, word);
+      await loadData();
+      loadWordsForCategory(selectedCategory);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add word');
+    }
+  };
+
+  const handleWordToggle = async (wordIndex: number, type: 'understanding' | 'speaking') => {
+    if (!activeChild) return;
+
+    try {
+      const word = words[wordIndex];
+      const newValue = !word[type];
+
+      const categoryData = activeChild.categories[language];
+      let targetCategory = '';
+      let targetWordIndex = -1;
+
+      // Find which category this word belongs to and its index within that category
+      if (selectedCategory === 'all') {
+        for (const [catKey, category] of Object.entries(categoryData)) {
+          const index = category.words.findIndex(w => w.word === word.word);
+          if (index !== -1) {
+            targetCategory = catKey;
+            targetWordIndex = index;
+            break;
+          }
+        }
+      } else {
+        targetCategory = selectedCategory;
+        targetWordIndex = wordIndex;
+      }
+
+      if (targetCategory && targetWordIndex !== -1) {
+        await dataService.updateWordStatus(
+          activeChild.id,
+          language,
+          targetCategory,
+          targetWordIndex,
+          { [type]: newValue }
+        );
+        await loadData();
+        loadWordsForCategory(selectedCategory);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update word status');
+    }
+  };
+
+  const getAllExistingWords = (): string[] => {
+    if (!activeChild) return [];
+
+    const categoryData = activeChild.categories[language];
+    let allWords: string[] = [];
+
+    Object.values(categoryData).forEach(category => {
+      category.words.forEach(word => {
+        allWords.push(word.word);
+      });
+    });
+
+    return allWords;
+  };
+
   const getCategoryEmoji = (categoryKey: string): string => {
     const emojiMap: { [key: string]: string } = {
       family: '👨‍👩‍👧‍👦',
@@ -76,29 +194,53 @@ const CategoriesScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleCategoryPress = (categoryKey: string) => {
-    navigation.navigate('CategoryDetail', {
-      language,
-      categoryKey,
-    });
+    setSelectedCategory(categoryKey);
   };
 
-  const renderCategoryCard = (category: CategoryInfo) => (
-    <TouchableOpacity
-      key={category.key}
-      style={styles.categoryCard}
-      onPress={() => handleCategoryPress(category.key)}
-    >
-      <View style={styles.categoryHeader}>
+  const renderCategoryTab = (category: CategoryInfo) => {
+    const isSelected = selectedCategory === category.key;
+    return (
+      <TouchableOpacity
+        key={category.key}
+        style={[styles.categoryTab, isSelected && styles.selectedTab]}
+        onPress={() => handleCategoryPress(category.key)}
+      >
         <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-        <View style={styles.categoryInfo}>
-          <Text style={styles.categoryTitle}>{category.title}</Text>
-          <Text style={styles.wordCount}>
-            {category.wordCount} {category.wordCount === 1 ? 'word' : 'words'}
+        <Text style={[styles.categoryTabTitle, isSelected && styles.selectedTabTitle]}>
+          {category.title}
+        </Text>
+        <Text style={[styles.categoryTabCount, isSelected && styles.selectedTabCount]}>
+          {category.wordCount}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderWordCard = ({ item, index }: { item: WordItem; index: number }) => (
+    <View style={styles.wordCard}>
+      <Text style={styles.wordText}>{item.word}</Text>
+      <View style={styles.wordActions}>
+        <TouchableOpacity
+          style={[styles.wordButton, item.understanding && styles.activeWordButton]}
+          onPress={() => handleWordToggle(index, 'understanding')}
+        >
+          <Text style={[styles.wordButtonText, item.understanding && styles.activeWordButtonText]}>
+            👂 Understands
           </Text>
-        </View>
-        <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.wordButton, item.speaking && styles.activeWordButton]}
+          onPress={() => handleWordToggle(index, 'speaking')}
+        >
+          <Text style={[styles.wordButtonText, item.speaking && styles.activeWordButtonText]}>
+            🗣️ Speaks
+          </Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+      {item.firstSpokenAge && (
+        <Text style={styles.ageText}>First spoken at {item.firstSpokenAge} months</Text>
+      )}
+    </View>
   );
 
   if (!activeChild) {
@@ -109,27 +251,69 @@ const CategoriesScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
+  const allTabsData = [
+    { key: 'all', title: 'All', wordCount: words.length, emoji: '📚' },
+    ...categories,
+    { key: 'other', title: 'Others', wordCount: categories.find(c => c.key === 'other')?.wordCount || 0, emoji: '📝' }
+  ];
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {language === 'english' ? '🇬🇧 English' : '🇧🇷 Portuguese'} Categories
-        </Text>
-        <Text style={styles.subtitle}>
-          Track {activeChild.name}'s word development
-        </Text>
-      </View>
-
-      <View style={styles.categoriesContainer}>
-        {categories.map(renderCategoryCard)}
-      </View>
-
-      {categories.length === 0 && (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No categories available</Text>
-        </View>
+    <View style={styles.container}>
+      {activeChild && (
+        <LiveStatsComponent
+          child={activeChild}
+          language={language}
+          selectedCategory={selectedCategory}
+        />
       )}
-    </ScrollView>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsContainer}
+        contentContainerStyle={styles.tabsContent}
+      >
+        {allTabsData.map(renderCategoryTab)}
+      </ScrollView>
+
+      <View style={styles.contentContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {selectedCategory === 'all' ? 'All Words' :
+             selectedCategory === 'other' ? 'Custom Words' :
+             categories.find(c => c.key === selectedCategory)?.title || 'Words'}
+          </Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddWordModal(true)}
+          >
+            <Text style={styles.addButtonText}>+ Add Word</Text>
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={words}
+          renderItem={renderWordCard}
+          keyExtractor={(item, index) => `${item.word}-${index}`}
+          style={styles.wordsList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No words available</Text>
+              <Text style={styles.emptySubtext}>Tap "Add Word" to get started</Text>
+            </View>
+          }
+        />
+      </View>
+
+      <AddWordModal
+        visible={showAddWordModal}
+        onClose={() => setShowAddWordModal(false)}
+        onSave={handleAddWord}
+        existingWords={getAllExistingWords()}
+        categories={categories.map(cat => ({ key: cat.key, title: cat.title }))}
+      />
+    </View>
   );
 };
 
@@ -144,56 +328,122 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.background,
   },
-  header: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-  },
-  title: {
-    fontSize: theme.fontSizes.xl,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    fontSize: theme.fontSizes.md,
-    color: theme.colors.textSecondary,
-  },
-  categoriesContainer: {
-    padding: theme.spacing.md,
-    paddingTop: 0,
-  },
-  categoryCard: {
+  tabsContainer: {
+    maxHeight: 80,
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    ...shadows.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  categoryHeader: {
-    flexDirection: 'row',
+  tabsContent: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  categoryTab: {
     alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginRight: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.background,
+    minWidth: 80,
+  },
+  selectedTab: {
+    backgroundColor: theme.colors.primary,
   },
   categoryEmoji: {
-    fontSize: theme.fontSizes.xl,
-    marginRight: theme.spacing.md,
-  },
-  categoryInfo: {
-    flex: 1,
-  },
-  categoryTitle: {
     fontSize: theme.fontSizes.lg,
-    fontWeight: '600',
-    color: theme.colors.text,
     marginBottom: theme.spacing.xs,
   },
-  wordCount: {
+  categoryTabTitle: {
     fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xs,
   },
-  chevron: {
-    fontSize: theme.fontSizes.xl,
+  selectedTabTitle: {
+    color: '#ffffff',
+  },
+  categoryTabCount: {
+    fontSize: theme.fontSizes.xs,
     color: theme.colors.textSecondary,
-    fontWeight: '300',
+    fontWeight: '500',
+  },
+  selectedTabCount: {
+    color: '#ffffff',
+  },
+  contentContainer: {
+    flex: 1,
+    padding: theme.spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  addButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontSize: theme.fontSizes.sm,
+    fontWeight: '600',
+  },
+  wordsList: {
+    flex: 1,
+  },
+  wordCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...shadows.sm,
+  },
+  wordText: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
+  wordActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  wordButton: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  activeWordButton: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
+  wordButtonText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  activeWordButtonText: {
+    color: '#ffffff',
+  },
+  ageText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+    fontStyle: 'italic',
   },
   noChildText: {
     fontSize: theme.fontSizes.lg,
@@ -208,6 +458,13 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.md,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  emptySubtext: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

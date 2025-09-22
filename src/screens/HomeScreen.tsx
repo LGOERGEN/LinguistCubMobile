@@ -244,9 +244,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {/* Welcome Message */}
       {children.length === 0 && (
         <View style={styles.welcomeContainer}>
-          <Text style={styles.welcomeTitle}>Welcome to Linguist Cub!</Text>
+          <Text style={styles.welcomeTitle}>Welcome to Linguist Cub! 🎉</Text>
           <Text style={styles.welcomeText}>
-            Get started by adding your first child profile above.
+            Get started by adding your first child profile above. (Updated!)
           </Text>
         </View>
       )}
