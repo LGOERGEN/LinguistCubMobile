@@ -14,6 +14,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Child, AppData } from '../types';
 import { dataService } from '../services/dataService';
 import { theme, shadows } from '../constants/theme';
+import ChildProfileModal from '../components/ChildProfileModal';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -25,6 +26,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [appData, setAppData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showChildModal, setShowChildModal] = useState(false);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
 
   const loadData = async () => {
     try {
@@ -51,31 +54,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const handleAddChild = () => {
-    Alert.prompt(
-      'Add New Child',
-      'Enter your child\'s name:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: async (name?: string) => {
-            if (name && name.trim()) {
-              try {
-                await dataService.createChild(
-                  name.trim(),
-                  null,
-                  ['english', 'portuguese']
-                );
-                await loadData();
-              } catch (error) {
-                Alert.alert('Error', 'Failed to add child');
-              }
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+    setEditingChild(null);
+    setShowChildModal(true);
+  };
+
+  const handleSaveChild = async (
+    name: string,
+    birthDate: string | null,
+    languages: ('english' | 'portuguese')[]
+  ) => {
+    try {
+      if (editingChild) {
+        await dataService.updateChild(editingChild.id, {
+          name,
+          birthDate,
+          selectedLanguages: languages,
+        });
+      } else {
+        await dataService.createChild(name, birthDate, languages);
+      }
+      await loadData();
+    } catch (error) {
+      Alert.alert('Error', `Failed to ${editingChild ? 'update' : 'add'} child`);
+    }
   };
 
   const handleSelectChild = async (childId: string) => {
@@ -94,30 +95,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Edit Name',
+          text: 'Edit Profile',
           onPress: () => {
-            Alert.prompt(
-              'Edit Name',
-              'Enter new name:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Save',
-                  onPress: async (newName?: string) => {
-                    if (newName && newName.trim()) {
-                      try {
-                        await dataService.updateChild(child.id, { name: newName.trim() });
-                        await loadData();
-                      } catch (error) {
-                        Alert.alert('Error', 'Failed to update name');
-                      }
-                    }
-                  },
-                },
-              ],
-              'plain-text',
-              child.name
-            );
+            setEditingChild(child);
+            setShowChildModal(true);
           },
         },
         {
@@ -249,6 +230,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             >
               <Text style={styles.actionButtonText}>📊 View Statistics</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.textSecondary }]}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Text style={styles.actionButtonText}>⚙️ Settings</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -262,6 +250,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       )}
+
+      <ChildProfileModal
+        visible={showChildModal}
+        onClose={() => setShowChildModal(false)}
+        onSave={handleSaveChild}
+        child={editingChild}
+        mode={editingChild ? 'edit' : 'create'}
+      />
     </ScrollView>
   );
 };

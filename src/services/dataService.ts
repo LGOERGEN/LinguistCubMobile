@@ -241,17 +241,6 @@ class DataService {
     return JSON.stringify(this.data, null, 2);
   }
 
-  async importData(jsonData: string): Promise<void> {
-    try {
-      const importedData = JSON.parse(jsonData);
-      this.data = await this.migrateData(importedData);
-      await this.saveData();
-    } catch (error) {
-      console.error('Error importing data:', error);
-      throw new Error('Invalid data format');
-    }
-  }
-
   private async migrateData(data: AppData): Promise<AppData> {
     // Add migration logic here when app structure changes
     // For now, just ensure version is set
@@ -260,6 +249,23 @@ class DataService {
     }
 
     return data;
+  }
+
+  async getAllData(): Promise<AppData> {
+    if (!this.data) {
+      await this.initializeData();
+    }
+    return this.data!;
+  }
+
+  async importData(importedData: AppData): Promise<void> {
+    try {
+      this.data = await this.migrateData(importedData);
+      await this.saveData();
+    } catch (error) {
+      console.error('Error importing data:', error);
+      throw new Error('Invalid data format');
+    }
   }
 
   async clearAllData(): Promise<void> {
