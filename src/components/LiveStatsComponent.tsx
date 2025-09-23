@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { theme, shadows } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { theme, shadows, gradients } from '../constants/theme';
 import { Child } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -95,10 +96,10 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
 
   const stats = calculateStats();
 
-  const renderStatCard = (title: string, value: number, color?: string) => (
-    <View style={[styles.statCard, color && { borderLeftColor: color, borderLeftWidth: 4 }]}>
-      <Text style={styles.statTitle}>{title}</Text>
-      <Text style={[styles.statValue, color && { color }]}>{value}</Text>
+  const renderStatCard = (title: string, value: number, backgroundColor: string) => (
+    <View style={[styles.statCard, { backgroundColor }]}>
+      <Text style={[styles.statValue, { color: '#ffffff' }]}>{value}</Text>
+      <Text style={[styles.statTitle, { color: '#ffffff' }]}>{title}</Text>
     </View>
   );
 
@@ -119,8 +120,8 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
           </View>
         </View>
         <View style={styles.ratioLabels}>
-          <Text style={styles.ratioLabel}>🇬🇧 English</Text>
-          <Text style={styles.ratioLabel}>🇧🇷 Portuguese</Text>
+          <Text style={styles.ratioLabel}>English</Text>
+          <Text style={styles.ratioLabel}>Portuguese</Text>
         </View>
       </View>
     );
@@ -139,7 +140,7 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
     const screenWidth = Dimensions.get('window').width;
     const chartWidth = screenWidth - (theme.spacing.md * 4);
     const maxCount = Math.max(...stats.ageChartData.map(d => d.total));
-    const maxHeight = 80;
+    const maxHeight = 60;
 
     return (
       <View style={styles.chartContainer}>
@@ -189,34 +190,36 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
     if (child.selectedLanguages.includes('english') && child.selectedLanguages.includes('portuguese')) {
       return 'Overall Progress';
     }
-    return language === 'english' ? '🇬🇧 English Progress' : '🇧🇷 Portuguese Progress';
+    return language === 'english' ? 'English Progress' : 'Portuguese Progress';
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={gradients.card}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{getDisplayTitle()}</Text>
         <Text style={styles.headerSubtitle}>{child.name}'s Language Development</Text>
       </View>
 
       <View style={styles.statsGrid}>
-        {renderStatCard('Words Understood', stats.understood, theme.colors.success)}
-        {renderStatCard('Words Spoken', stats.spoken, theme.colors.primary)}
+        {renderStatCard('Words Understanding', stats.understood, theme.colors.success)}
+        {renderStatCard('Words Speaking', stats.spoken, theme.colors.primary)}
       </View>
 
       {renderLanguageRatio()}
       {renderAgeChart()}
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.surface,
-    margin: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    margin: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
     borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
     ...shadows.md,
   },
   header: {
@@ -237,28 +240,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   statCard: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
     alignItems: 'center',
-    ...shadows.sm,
+    justifyContent: 'center',
+    minHeight: 80,
+    marginHorizontal: theme.spacing.xs,
+    ...shadows.lg,
   },
-  statTitle: {
-    fontSize: theme.fontSizes.xs,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
+  statValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ffffff',
     marginBottom: theme.spacing.xs,
     textAlign: 'center',
   },
-  statValue: {
-    fontSize: theme.fontSizes.xl,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+  statTitle: {
+    fontSize: theme.fontSizes.sm,
+    color: '#ffffff',
+    fontWeight: '600',
+    textAlign: 'center',
+    opacity: 0.9,
   },
   statPercentage: {
     fontSize: theme.fontSizes.sm,
@@ -301,7 +307,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chartContainer: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
   },
   chartTitle: {
     fontSize: theme.fontSizes.sm,
@@ -314,8 +320,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
     gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   chartBar: {
     alignItems: 'center',

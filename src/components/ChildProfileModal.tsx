@@ -19,6 +19,7 @@ interface ChildProfileModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (name: string, birthDate: string | null, languages: ('english' | 'portuguese')[]) => void;
+  onDelete?: () => void;
   child?: Child | null;
   mode: 'create' | 'edit';
 }
@@ -27,6 +28,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   visible,
   onClose,
   onSave,
+  onDelete,
   child,
   mode,
 }) => {
@@ -115,7 +117,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
               {mode === 'create' ? 'Add New Child' : `Edit ${child?.name}`}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={styles.closeButtonText}>×</Text>
             </TouchableOpacity>
           </View>
 
@@ -141,7 +143,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                 <Text style={styles.dateButtonText}>
                   {formatDate(birthDate)}{calculateAge(birthDate)}
                 </Text>
-                <Text style={styles.dateButtonIcon}>📅</Text>
+                <Text style={styles.dateButtonIcon}>Calendar</Text>
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -201,6 +203,31 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
+
+            {mode === 'edit' && onDelete && (
+              <TouchableOpacity
+                style={[styles.button, styles.deleteButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Delete Child',
+                    `Are you sure you want to delete ${child?.name}? This action cannot be undone and will remove all their data.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => {
+                          onDelete();
+                          handleClose();
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.button, styles.saveButton]}
@@ -346,12 +373,20 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: theme.colors.primary,
   },
+  deleteButton: {
+    backgroundColor: theme.colors.error,
+  },
   cancelButtonText: {
     color: theme.colors.text,
     fontSize: theme.fontSizes.md,
     fontWeight: '600',
   },
   saveButtonText: {
+    color: '#ffffff',
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+  },
+  deleteButtonText: {
     color: '#ffffff',
     fontSize: theme.fontSizes.md,
     fontWeight: '600',

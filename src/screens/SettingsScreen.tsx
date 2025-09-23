@@ -8,7 +8,9 @@ import {
   Share,
   StyleSheet,
   Linking,
+  Switch,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { theme, shadows } from '../constants/theme';
 import { dataService } from '../services/dataService';
@@ -16,6 +18,11 @@ import { dataService } from '../services/dataService';
 const SettingsScreen: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [preferences, setPreferences] = useState({
+    notifications: true,
+    hapticFeedback: true,
+    darkMode: false,
+  });
 
   const handleExportData = async () => {
     try {
@@ -45,7 +52,45 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleImportData = async () => {
-    Alert.alert('Import Data', 'Import functionality will be available in a future version.');
+    try {
+      setIsImporting(true);
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const file = result.assets[0];
+
+        Alert.alert(
+          'Import Data',
+          'This will replace all existing data. Are you sure you want to continue?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Import',
+              style: 'destructive',
+              onPress: () => processImportFile(file.uri),
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      Alert.alert('Import Failed', 'Failed to select import file. Please try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const processImportFile = async (fileUri: string) => {
+    try {
+      // For now, show a coming soon message
+      Alert.alert('Import', 'File import functionality will be available in a future update.');
+    } catch (error) {
+      Alert.alert('Import Failed', 'Failed to import data. Please check the file format.');
+    }
   };
 
   const handleClearAllData = () => {
@@ -84,6 +129,36 @@ const SettingsScreen: React.FC = () => {
         Alert.alert('Email Not Available', 'Please contact us at support@linguistcub.com');
       }
     });
+  };
+
+  const togglePreference = (key: keyof typeof preferences) => {
+    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderPreferenceItem = (
+    title: string,
+    description: string,
+    value: boolean,
+    onToggle: () => void,
+    icon: string
+  ) => {
+    return (
+      <View style={styles.preferenceItem}>
+        <View style={styles.preferenceContent}>
+          <Text style={styles.preferenceIcon}>{icon}</Text>
+          <View style={styles.preferenceTextContainer}>
+            <Text style={styles.preferenceTitle}>{title}</Text>
+            <Text style={styles.preferenceDescription}>{description}</Text>
+          </View>
+        </View>
+        <Switch
+          value={value}
+          onValueChange={onToggle}
+          trackColor={{ false: '#767577', true: theme.colors.primary }}
+          thumbColor={value ? '#ffffff' : '#f4f3f4'}
+        />
+      </View>
+    );
   };
 
   const renderSettingItem = (
@@ -148,9 +223,37 @@ const SettingsScreen: React.FC = () => {
           'Clear All Data',
           'Permanently delete all children profiles and progress',
           handleClearAllData,
-          '🗑️',
+          '',
           false,
           'danger'
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>App Preferences</Text>
+
+        {renderPreferenceItem(
+          'Notifications',
+          'Receive milestone and progress notifications',
+          preferences.notifications,
+          () => togglePreference('notifications'),
+          '🔔'
+        )}
+
+        {renderPreferenceItem(
+          'Haptic Feedback',
+          'Feel vibrations when interacting with the app',
+          preferences.hapticFeedback,
+          () => togglePreference('hapticFeedback'),
+          '📳'
+        )}
+
+        {renderPreferenceItem(
+          'Dark Mode',
+          'Use dark theme (coming soon)',
+          preferences.darkMode,
+          () => togglePreference('darkMode'),
+          '🌙'
         )}
       </View>
 
@@ -180,7 +283,7 @@ const SettingsScreen: React.FC = () => {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Made with ❤️ for language learning families
+          Made with love for language learning families
         </Text>
       </View>
     </ScrollView>
@@ -304,6 +407,41 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Preference styles
+  preferenceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    ...shadows.sm,
+  },
+  preferenceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  preferenceIcon: {
+    fontSize: theme.fontSizes.lg,
+    marginRight: theme.spacing.md,
+    width: 24,
+    textAlign: 'center',
+  },
+  preferenceTextContainer: {
+    flex: 1,
+  },
+  preferenceTitle: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  preferenceDescription: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
   },
 });
 

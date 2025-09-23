@@ -2,18 +2,18 @@ import { Theme } from '../types';
 
 export const theme: Theme = {
   colors: {
-    primary: '#6c9bd1',
-    secondary: '#f8f9fa',
-    background: '#f8f9fa',
-    surface: '#ffffff',
-    text: '#2c3e50',
-    textSecondary: '#7f8c8d',
-    border: '#e9ecef',
-    success: '#27ae60',
-    warning: '#f39c12',
-    error: '#e74c3c',
-    english: '#6c9bd1',
-    portuguese: '#e74c3c',
+    primary: '#9eb7dd',
+    secondary: '#88c3a7',
+    background: '#ffffff',
+    surface: 'rgba(255, 255, 255, 0.9)',
+    text: '#2C3E50',
+    textSecondary: '#607D8B',
+    border: 'rgba(255, 255, 255, 0.3)',
+    success: '#88c3a7',
+    warning: '#e7984d',
+    error: '#FF7A85',
+    english: '#9eb7dd',
+    portuguese: '#e7984d',
   },
   spacing: {
     xs: 4,
@@ -35,6 +35,15 @@ export const theme: Theme = {
     xl: 24,
     xxl: 32,
   },
+};
+
+export const gradients = {
+  background: ['#9eb7dd', '#88c3a7', '#e7984d'],
+  card: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)'],
+  primaryCard: ['#9eb7dd', '#88c3a7'],
+  successCard: ['#88c3a7', '#9eb7dd'],
+  warningCard: ['#e7984d', '#88c3a7'],
+  statsBar: ['#88c3a7', '#9eb7dd'],
 };
 
 export const shadows = {

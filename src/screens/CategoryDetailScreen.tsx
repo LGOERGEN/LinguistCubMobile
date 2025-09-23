@@ -177,7 +177,7 @@ const CategoryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress={() => setShowAddWord(!showAddWord)}
         >
           <Text style={styles.addButtonText}>
-            {showAddWord ? '✕ Cancel' : '+ Add Word'}
+            {showAddWord ? 'Cancel' : '+ Add Word'}
           </Text>
         </TouchableOpacity>
       </View>

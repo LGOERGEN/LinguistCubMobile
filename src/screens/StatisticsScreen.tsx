@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -29,18 +30,49 @@ interface LanguageStats {
   categories: CategoryStats[];
 }
 
+interface Milestone {
+  age: number;
+  words: number;
+  language: 'english' | 'portuguese' | 'total';
+  achieved: boolean;
+}
+
 const StatisticsScreen: React.FC = () => {
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [stats, setStats] = useState<{
     english: LanguageStats;
     portuguese: LanguageStats;
   } | null>(null);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
 
   useFocusEffect(
     React.useCallback(() => {
       loadStatistics();
     }, [])
   );
+
+  const calculateMilestones = (child: Child): Milestone[] => {
+    const currentAge = child.birthDate ?
+      Math.floor((Date.now() - new Date(child.birthDate).getTime()) / (1000 * 60 * 60 * 24 * 30)) : 0;
+
+    const milestoneTargets = [
+      { age: 12, words: 10, language: 'total' as const },
+      { age: 15, words: 25, language: 'total' as const },
+      { age: 18, words: 50, language: 'total' as const },
+      { age: 24, words: 100, language: 'total' as const },
+      { age: 30, words: 200, language: 'total' as const },
+      { age: 36, words: 300, language: 'total' as const },
+    ];
+
+    return milestoneTargets.map(target => {
+      const totalWords = stats ? stats.english.speaking + stats.portuguese.speaking : 0;
+      return {
+        ...target,
+        achieved: currentAge >= target.age && totalWords >= target.words,
+      };
+    });
+  };
 
   const loadStatistics = () => {
     const child = dataService.getActiveChild();
@@ -59,6 +91,12 @@ const StatisticsScreen: React.FC = () => {
       english: englishStats,
       portuguese: portugueseStats,
     });
+
+    // Calculate milestones after stats are available
+    setTimeout(() => {
+      const calculatedMilestones = calculateMilestones(child);
+      setMilestones(calculatedMilestones);
+    }, 100);
   };
 
   const calculateLanguageStats = (child: Child, language: 'english' | 'portuguese'): LanguageStats => {
@@ -223,6 +261,68 @@ const StatisticsScreen: React.FC = () => {
           </View>
         </View>
       </View>
+
+      {/* Milestones Section */}
+      <View style={styles.milestonesSection}>
+        <Text style={styles.sectionTitle}>Development Milestones</Text>
+        <View style={styles.milestonesGrid}>
+          {milestones.map((milestone, index) => (
+            <View key={index} style={[
+              styles.milestoneCard,
+              milestone.achieved && styles.milestoneAchieved
+            ]}>
+              <Text style={[
+                styles.milestoneAge,
+                milestone.achieved && styles.milestoneAchievedText
+              ]}>
+                {milestone.age}m
+              </Text>
+              <Text style={[
+                styles.milestoneWords,
+                milestone.achieved && styles.milestoneAchievedText
+              ]}>
+                {milestone.words} words
+              </Text>
+              {milestone.achieved && (
+                <Text style={styles.milestoneCheck}>✓</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Timeline Toggle */}
+      <TouchableOpacity
+        style={styles.timelineToggle}
+        onPress={() => setShowTimeline(!showTimeline)}
+      >
+        <Text style={styles.timelineToggleText}>
+          📈 {showTimeline ? 'Hide' : 'Show'} Progress Timeline
+        </Text>
+        <Text style={styles.timelineToggleIcon}>
+          {showTimeline ? '▲' : '▼'}
+        </Text>
+      </TouchableOpacity>
+
+      {showTimeline && (
+        <View style={styles.timelineSection}>
+          <Text style={styles.timelineTitle}>Progress Timeline</Text>
+          <Text style={styles.timelineDescription}>
+            Track your child's language development over time
+          </Text>
+          <View style={styles.timelineChart}>
+            <Text style={styles.timelineComingSoon}>
+              📊 Advanced timeline charts coming soon!
+            </Text>
+            <Text style={styles.timelineCurrentProgress}>
+              Current progress: {totalSpeaking} words at{' '}
+              {activeChild.birthDate ?
+                Math.floor((Date.now() - new Date(activeChild.birthDate).getTime()) / (1000 * 60 * 60 * 24 * 30))
+                : 0} months
+            </Text>
+          </View>
+        </View>
+      )}
 
       {renderLanguageCard(stats.english)}
       {renderLanguageCard(stats.portuguese)}
@@ -393,6 +493,114 @@ const styles = StyleSheet.create({
   categoryNumbers: {
     fontSize: theme.fontSizes.xs,
     color: theme.colors.textSecondary,
+  },
+  // New styles for milestones and timeline
+  milestonesSection: {
+    margin: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    ...shadows.sm,
+  },
+  sectionTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+  },
+  milestonesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  milestoneCard: {
+    width: '30%',
+    backgroundColor: '#f5f5f5',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  milestoneAchieved: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
+  milestoneAge: {
+    fontSize: theme.fontSizes.sm,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  milestoneWords: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  milestoneAchievedText: {
+    color: '#ffffff',
+  },
+  milestoneCheck: {
+    fontSize: theme.fontSizes.md,
+    color: '#ffffff',
+    marginTop: theme.spacing.xs,
+  },
+  timelineToggle: {
+    margin: theme.spacing.md,
+    marginTop: 0,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  timelineToggleText: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  timelineToggleIcon: {
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textSecondary,
+  },
+  timelineSection: {
+    margin: theme.spacing.md,
+    marginTop: 0,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    ...shadows.sm,
+  },
+  timelineTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  timelineDescription: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+  },
+  timelineChart: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  timelineComingSoon: {
+    fontSize: theme.fontSizes.md,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  timelineCurrentProgress: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

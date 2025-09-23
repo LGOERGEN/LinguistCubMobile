@@ -39,7 +39,7 @@ const WordCard: React.FC<WordCardProps> = ({
               word.understanding && styles.activeText,
             ]}
           >
-            👂 Understands
+            Understands
           </Text>
         </TouchableOpacity>
 

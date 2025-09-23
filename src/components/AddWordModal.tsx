@@ -73,7 +73,7 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
           <View style={styles.header}>
             <Text style={styles.title}>Add New Word</Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={styles.closeButtonText}>×</Text>
             </TouchableOpacity>
           </View>
 
