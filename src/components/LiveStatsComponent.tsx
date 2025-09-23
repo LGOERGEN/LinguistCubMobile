@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { theme, shadows } from '../constants/theme';
 import { Child } from '../types';
+import { dataService } from '../services/dataService';
 
 interface LiveStatsComponentProps {
   child: Child;
@@ -10,11 +11,16 @@ interface LiveStatsComponentProps {
 }
 
 interface WordStats {
-  total: number;
-  understanding: number;
-  speaking: number;
-  understandingPercentage: number;
-  speakingPercentage: number;
+  understood: number;
+  spoken: number;
+  englishRatio: number;
+  portugueseRatio: number;
+  ageChartData: { age: number; english: number; portuguese: number; total: number }[];
+}
+
+interface LanguageStats {
+  understood: number;
+  spoken: number;
 }
 
 const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
@@ -22,107 +28,184 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
   language,
   selectedCategory,
 }) => {
-  const calculateStats = (): WordStats => {
-    const categories = child.categories[language];
+  const calculateLanguageStats = (lang: 'english' | 'portuguese'): LanguageStats => {
+    const categories = child.categories[lang];
     let allWords: any[] = [];
 
-    if (selectedCategory === 'all' || !selectedCategory) {
-      Object.values(categories).forEach(category => {
-        allWords = allWords.concat(category.words);
-      });
-    } else if (selectedCategory === 'other') {
-      if (categories.other) {
-        allWords = categories.other.words;
-      }
-    } else {
-      if (categories[selectedCategory]) {
-        allWords = categories[selectedCategory].words;
-      }
-    }
-
-    const total = allWords.length;
-    const understanding = allWords.filter(word => word.understanding).length;
-    const speaking = allWords.filter(word => word.speaking).length;
+    Object.values(categories).forEach(category => {
+      allWords = allWords.concat(category.words);
+    });
 
     return {
-      total,
-      understanding,
-      speaking,
-      understandingPercentage: total > 0 ? Math.round((understanding / total) * 100) : 0,
-      speakingPercentage: total > 0 ? Math.round((speaking / total) * 100) : 0,
+      understood: allWords.filter(word => word.understanding).length,
+      spoken: allWords.filter(word => word.speaking).length,
+    };
+  };
+
+  const calculateStats = (): WordStats => {
+    const englishStats = calculateLanguageStats('english');
+    const portugueseStats = calculateLanguageStats('portuguese');
+    const totalSpoken = englishStats.spoken + portugueseStats.spoken;
+
+    // Calculate language ratios
+    const englishRatio = totalSpoken > 0 ? Math.round((englishStats.spoken / totalSpoken) * 100) : 50;
+    const portugueseRatio = totalSpoken > 0 ? Math.round((portugueseStats.spoken / totalSpoken) * 100) : 50;
+
+    // Calculate age chart data with stacked bars
+    const ageGroups: { [key: number]: { english: number; portuguese: number } } = {};
+
+    // Process both languages
+    ['english', 'portuguese'].forEach(lang => {
+      const categories = child.categories[lang as 'english' | 'portuguese'];
+      Object.values(categories).forEach(category => {
+        category.words.forEach(word => {
+          if (word.speaking && word.firstSpokenAge !== null) {
+            const age = word.firstSpokenAge;
+            if (!ageGroups[age]) {
+              ageGroups[age] = { english: 0, portuguese: 0 };
+            }
+            ageGroups[age][lang as 'english' | 'portuguese']++;
+          }
+        });
+      });
+    });
+
+    // Convert to stacked chart data
+    const ageChartData = Object.keys(ageGroups)
+      .map(ageStr => {
+        const age = parseInt(ageStr);
+        const group = ageGroups[age];
+        return {
+          age,
+          english: group.english,
+          portuguese: group.portuguese,
+          total: group.english + group.portuguese
+        };
+      })
+      .sort((a, b) => a.age - b.age);
+
+    return {
+      understood: englishStats.understood + portugueseStats.understood,
+      spoken: totalSpoken,
+      englishRatio,
+      portugueseRatio,
+      ageChartData,
     };
   };
 
   const stats = calculateStats();
 
-  const renderStatCard = (title: string, value: number, percentage?: number, color?: string) => (
+  const renderStatCard = (title: string, value: number, color?: string) => (
     <View style={[styles.statCard, color && { borderLeftColor: color, borderLeftWidth: 4 }]}>
       <Text style={styles.statTitle}>{title}</Text>
       <Text style={[styles.statValue, color && { color }]}>{value}</Text>
-      {percentage !== undefined && (
-        <Text style={styles.statPercentage}>{percentage}%</Text>
-      )}
     </View>
   );
 
-  const getCategoryTitle = () => {
-    if (!selectedCategory || selectedCategory === 'all') {
-      return 'All Categories';
+  const renderLanguageRatio = () => {
+    if (!child.selectedLanguages.includes('english') || !child.selectedLanguages.includes('portuguese')) {
+      return null;
     }
-    if (selectedCategory === 'other') {
-      return 'Custom Words';
+
+    return (
+      <View style={styles.ratioContainer}>
+        <Text style={styles.ratioTitle}>Language Distribution (Spoken Words)</Text>
+        <View style={styles.ratioBar}>
+          <View style={[styles.ratioSegment, { width: `${stats.englishRatio}%`, backgroundColor: theme.colors.english }]}>
+            <Text style={styles.ratioText}>{stats.englishRatio}%</Text>
+          </View>
+          <View style={[styles.ratioSegment, { width: `${stats.portugueseRatio}%`, backgroundColor: theme.colors.portuguese }]}>
+            <Text style={styles.ratioText}>{stats.portugueseRatio}%</Text>
+          </View>
+        </View>
+        <View style={styles.ratioLabels}>
+          <Text style={styles.ratioLabel}>🇬🇧 English</Text>
+          <Text style={styles.ratioLabel}>🇧🇷 Portuguese</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderAgeChart = () => {
+    if (stats.ageChartData.length === 0) {
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Words Spoken by Age</Text>
+          <Text style={styles.noDataText}>No spoken words recorded yet</Text>
+        </View>
+      );
     }
-    return child.categories[language][selectedCategory]?.title || selectedCategory;
+
+    const screenWidth = Dimensions.get('window').width;
+    const chartWidth = screenWidth - (theme.spacing.md * 4);
+    const maxCount = Math.max(...stats.ageChartData.map(d => d.total));
+    const maxHeight = 80;
+
+    return (
+      <View style={styles.chartContainer}>
+        <Text style={styles.chartTitle}>Words Spoken by Age</Text>
+        <View style={styles.chart}>
+          {stats.ageChartData.map((dataPoint, index) => {
+            const englishHeight = (dataPoint.english / maxCount) * maxHeight;
+            const portugueseHeight = (dataPoint.portuguese / maxCount) * maxHeight;
+
+            return (
+              <View key={`${dataPoint.age}-${index}`} style={styles.chartBar}>
+                <View style={styles.stackedBar}>
+                  {dataPoint.portuguese > 0 && (
+                    <View style={[styles.barSegment, {
+                      height: portugueseHeight,
+                      backgroundColor: theme.colors.portuguese
+                    }]} />
+                  )}
+                  {dataPoint.english > 0 && (
+                    <View style={[styles.barSegment, {
+                      height: englishHeight,
+                      backgroundColor: theme.colors.english
+                    }]} />
+                  )}
+                </View>
+                <Text style={styles.barLabel}>{dataPoint.age}m</Text>
+                <Text style={styles.barCount}>{dataPoint.total}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <View style={styles.chartLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: theme.colors.english }]} />
+            <Text style={styles.legendText}>English</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: theme.colors.portuguese }]} />
+            <Text style={styles.legendText}>Portuguese</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const getDisplayTitle = () => {
+    if (child.selectedLanguages.includes('english') && child.selectedLanguages.includes('portuguese')) {
+      return 'Overall Progress';
+    }
+    return language === 'english' ? '🇬🇧 English Progress' : '🇧🇷 Portuguese Progress';
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {language === 'english' ? '🇬🇧' : '🇧🇷'} {getCategoryTitle()}
-        </Text>
-        <Text style={styles.headerSubtitle}>Live Progress for {child.name}</Text>
+        <Text style={styles.headerTitle}>{getDisplayTitle()}</Text>
+        <Text style={styles.headerSubtitle}>{child.name}'s Language Development</Text>
       </View>
 
       <View style={styles.statsGrid}>
-        {renderStatCard('Total Words', stats.total, undefined, theme.colors.primary)}
-        {renderStatCard('Understanding', stats.understanding, stats.understandingPercentage, theme.colors.success)}
-        {renderStatCard('Speaking', stats.speaking, stats.speakingPercentage, theme.colors.english)}
+        {renderStatCard('Words Understood', stats.understood, theme.colors.success)}
+        {renderStatCard('Words Spoken', stats.spoken, theme.colors.primary)}
       </View>
 
-      <View style={styles.progressBars}>
-        <View style={styles.progressBar}>
-          <Text style={styles.progressLabel}>Understanding Progress</Text>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${stats.understandingPercentage}%`,
-                  backgroundColor: theme.colors.success
-                }
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>{stats.understandingPercentage}%</Text>
-        </View>
-
-        <View style={styles.progressBar}>
-          <Text style={styles.progressLabel}>Speaking Progress</Text>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${stats.speakingPercentage}%`,
-                  backgroundColor: theme.colors.english
-                }
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>{stats.speakingPercentage}%</Text>
-        </View>
-      </View>
+      {renderLanguageRatio()}
+      {renderAgeChart()}
     </View>
   );
 };
@@ -182,37 +265,107 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: '600',
   },
-  progressBars: {
-    gap: theme.spacing.md,
+  ratioContainer: {
+    marginBottom: theme.spacing.md,
   },
-  progressBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  progressLabel: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    fontWeight: '500',
-    width: 80,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
+  ratioTitle: {
     fontSize: theme.fontSizes.sm,
     color: theme.colors.text,
     fontWeight: '600',
-    width: 40,
-    textAlign: 'right',
+    marginBottom: theme.spacing.sm,
+  },
+  ratioBar: {
+    flexDirection: 'row',
+    height: 30,
+    backgroundColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.sm,
+  },
+  ratioSegment: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ratioText: {
+    color: '#ffffff',
+    fontSize: theme.fontSizes.xs,
+    fontWeight: 'bold',
+  },
+  ratioLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  ratioLabel: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  chartContainer: {
+    marginTop: theme.spacing.md,
+  },
+  chartTitle: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    fontWeight: '600',
+    marginBottom: theme.spacing.md,
+  },
+  chart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  chartBar: {
+    alignItems: 'center',
+    minWidth: 30,
+  },
+  stackedBar: {
+    width: 20,
+    minHeight: 2,
+    marginBottom: theme.spacing.xs,
+    justifyContent: 'flex-end',
+  },
+  barSegment: {
+    width: 20,
+    minHeight: 2,
+  },
+  barLabel: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  barCount: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+  },
+  noDataText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    padding: theme.spacing.lg,
   },
 });
 

@@ -126,38 +126,98 @@ const CategoriesScreen: React.FC<Props> = ({ route, navigation }) => {
       const word = words[wordIndex];
       const newValue = !word[type];
 
-      const categoryData = activeChild.categories[language];
-      let targetCategory = '';
-      let targetWordIndex = -1;
+      // If marking as speaking and it's not already spoken, prompt for age
+      if (type === 'speaking' && newValue && !word.speaking) {
+        const currentAge = activeChild.birthDate ? dataService.calculateAgeInMonths(activeChild.birthDate) : null;
 
-      // Find which category this word belongs to and its index within that category
-      if (selectedCategory === 'all') {
-        for (const [catKey, category] of Object.entries(categoryData)) {
-          const index = category.words.findIndex(w => w.word === word.word);
-          if (index !== -1) {
-            targetCategory = catKey;
-            targetWordIndex = index;
-            break;
-          }
+        if (currentAge === null) {
+          Alert.alert('Age Required', 'Please set a birth date for this child to track speaking ages.');
+          return;
         }
-      } else {
-        targetCategory = selectedCategory;
-        targetWordIndex = wordIndex;
+
+        Alert.prompt(
+          'Speaking Age',
+          `At what age (in months) did ${activeChild.name} first say "${word.word}"?\n\nCurrent age: ${currentAge} months`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Save',
+              onPress: async (ageInput) => {
+                if (!ageInput) return;
+
+                const age = parseInt(ageInput);
+                if (isNaN(age) || age < 0) {
+                  Alert.alert('Invalid Age', 'Please enter a valid age in months.');
+                  return;
+                }
+
+                if (age > currentAge) {
+                  Alert.alert('Invalid Age', `Age cannot be greater than child's current age (${currentAge} months).`);
+                  return;
+                }
+
+                await updateWordWithAge(wordIndex, type, newValue, age);
+              }
+            }
+          ],
+          'plain-text',
+          currentAge.toString()
+        );
+        return;
       }
 
-      if (targetCategory && targetWordIndex !== -1) {
-        await dataService.updateWordStatus(
-          activeChild.id,
-          language,
-          targetCategory,
-          targetWordIndex,
-          { [type]: newValue }
-        );
-        await loadData();
-        loadWordsForCategory(selectedCategory);
-      }
+      // For understanding or unsetting speaking, proceed normally
+      await updateWordWithAge(wordIndex, type, newValue, null);
     } catch (error) {
       Alert.alert('Error', 'Failed to update word status');
+    }
+  };
+
+  const updateWordWithAge = async (wordIndex: number, type: 'understanding' | 'speaking', newValue: boolean, age: number | null) => {
+    if (!activeChild) return;
+
+    const word = words[wordIndex];
+    const categoryData = activeChild.categories[language];
+    let targetCategory = '';
+    let targetWordIndex = -1;
+
+    // Find which category this word belongs to and its index within that category
+    if (selectedCategory === 'all') {
+      for (const [catKey, category] of Object.entries(categoryData)) {
+        const index = category.words.findIndex(w => w.word === word.word);
+        if (index !== -1) {
+          targetCategory = catKey;
+          targetWordIndex = index;
+          break;
+        }
+      }
+    } else {
+      targetCategory = selectedCategory;
+      targetWordIndex = wordIndex;
+    }
+
+    if (targetCategory && targetWordIndex !== -1) {
+      const updates: any = { [type]: newValue };
+
+      // If marking as speaking, set the age
+      if (type === 'speaking' && newValue && age !== null) {
+        updates.firstSpokenAge = age;
+      }
+
+      // If unsetting speaking, clear the age
+      if (type === 'speaking' && !newValue) {
+        updates.firstSpokenAge = null;
+      }
+
+      await dataService.updateWordStatus(
+        activeChild.id,
+        language,
+        targetCategory,
+        targetWordIndex,
+        updates
+      );
+      await loadData();
+      loadWordsForCategory(selectedCategory);
     }
   };
 
