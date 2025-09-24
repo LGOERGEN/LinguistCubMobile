@@ -10,7 +10,18 @@
     "description": "Track your child's multilingual language development journey across English, Portuguese, and Spanish. Growing together, word by word.",
     "primaryColor": "#9eb7dd",
     "privacy": "public",
-    "keywords": ["language development", "multilingual", "baby tracker", "child development", "trilingual", "vocabulary", "milestones", "bilingual families", "early childhood", "speech development"],
+    "keywords": [
+      "language development",
+      "multilingual",
+      "baby tracker",
+      "child development",
+      "trilingual",
+      "vocabulary",
+      "milestones",
+      "bilingual families",
+      "early childhood",
+      "speech development"
+    ],
     "category": "education",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -23,7 +34,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.linguistcub.mobile",
-      "buildNumber": "1",
+      "buildNumber": "4",
       "infoPlist": {
         "CFBundleDisplayName": "Linguist Cub",
         "NSCameraUsageDescription": "This app uses the camera to take photos for word learning activities.",
@@ -91,8 +102,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "linguist-cub-mobile"
+        "projectId": "4cb966ce-c450-418a-85e4-a99e29127b21"
       }
-    }
+    },
+    "owner": "lgoergen"
   }
 }
