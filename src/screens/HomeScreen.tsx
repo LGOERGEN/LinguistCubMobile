@@ -218,7 +218,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           title: categoryData[key].title,
           wordCount: categoryData[key].words.length,
           emoji: getCategoryEmoji(key),
-        }));
+        }))
+        .concat([{
+          key: 'other',
+          title: categoryData.other ? categoryData.other.title : 'Other',
+          wordCount: categoryData.other ? categoryData.other.words.length : 0,
+          emoji: getCategoryEmoji('other'),
+        }]);
       setCategories(categoryList);
 
       // Only load words for 'all' if we're not preserving the current category
@@ -618,7 +624,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           key,
           title: categoryData[key].title,
         }))
-        .concat([{ key: 'other', title: 'Others' }]);
+        .concat([{ key: 'other', title: categoryData.other ? categoryData.other.title : 'Other' }]);
     }
   };
 
@@ -671,7 +677,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const allTabsData = [
       { key: 'all', title: 'All', wordCount: words.length, emoji: '' },
       ...categories,
-      { key: 'other', title: 'Others', wordCount: otherWordCount, emoji: '' }
+      { key: 'other', title: categories.find(c => c.key === 'other')?.title || 'Other', wordCount: otherWordCount, emoji: '' }
     ];
 
     return (
@@ -737,7 +743,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.wordsTitle}>
             {showSearchResults ? `Search Results` :
              selectedCategory === 'all' ? 'All Words' :
-             selectedCategory === 'other' ? 'Custom Words' :
+             selectedCategory === 'other' ? (categories.find(c => c.key === 'other')?.title || 'Other') :
              categories.find(c => c.key === selectedCategory)?.title || 'Words'}
           </Text>
         </View>
@@ -983,7 +989,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.wordsHeader}>
           <Text style={styles.wordsTitle}>
             {selectedCategory === 'all' ? 'All Words' :
-             selectedCategory === 'other' ? 'Custom Words' :
+             selectedCategory === 'other' ? (categories.find(c => c.key === 'other')?.title || 'Other') :
              categories.find(c => c.key === selectedCategory)?.title || 'Words'} - {
              wordFilter === 'understood' ? 'Understands' :
              wordFilter === 'spoken' ? 'Speaks' : 'All'
