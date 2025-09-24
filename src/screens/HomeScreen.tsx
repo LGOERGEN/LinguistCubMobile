@@ -60,6 +60,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState<WordItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [wordFilter, setWordFilter] = useState<'all' | 'understood' | 'spoken'>('all');
+  const [globalFilteredWords, setGlobalFilteredWords] = useState<(WordItem & { language: string })[]>([]);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
 
   const loadData = async () => {
     try {
@@ -93,7 +95,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleSaveChild = async (
     name: string,
     birthDate: string | null,
-    languages: ('english' | 'portuguese')[]
+    languages: ('english' | 'portuguese' | 'spanish')[]
   ) => {
     try {
       if (editingChild) {
@@ -203,7 +205,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const loadCategoriesForLanguage = (language: 'english' | 'portuguese' | 'spanish') => {
+  const loadCategoriesForLanguage = (language: 'english' | 'portuguese' | 'spanish', preserveCategory?: boolean) => {
     const activeChild = dataService.getActiveChild();
     if (!activeChild) return;
 
@@ -218,7 +220,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           emoji: getCategoryEmoji(key),
         }));
       setCategories(categoryList);
-      loadWordsForCategory('all', language, activeChild);
+
+      // Only load words for 'all' if we're not preserving the current category
+      if (!preserveCategory) {
+        loadWordsForCategory('all', language, activeChild);
+      } else {
+        // Load words for the current selected category
+        loadWordsForCategory(selectedCategory, language, activeChild);
+      }
     }
   };
 
@@ -261,6 +270,49 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleFilterPress = (filter: 'all' | 'understood' | 'spoken') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setWordFilter(filter);
+
+    // When filtering, close any currently expanded individual language
+    setExpandedLanguage(null);
+
+    // Update global filtered words for cross-language filtering
+    const allWords = getAllWordsFromAllLanguages();
+    let filteredWords = allWords;
+
+    switch (filter) {
+      case 'understood':
+        filteredWords = allWords.filter(word => word.understanding);
+        break;
+      case 'spoken':
+        filteredWords = allWords.filter(word => word.speaking);
+        break;
+      default:
+        filteredWords = allWords;
+    }
+
+    setGlobalFilteredWords(filteredWords);
+  };
+
+  const getFilteredWordsForLanguage = (language: 'english' | 'portuguese' | 'spanish') => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return [];
+
+    const categoryData = activeChild.categories[language];
+    let allWords: WordItem[] = [];
+
+    // Get all words from this language
+    Object.values(categoryData).forEach(category => {
+      allWords = allWords.concat(category.words);
+    });
+
+    // Apply the current filter
+    switch (wordFilter) {
+      case 'understood':
+        return allWords.filter(word => word.understanding);
+      case 'spoken':
+        return allWords.filter(word => word.speaking);
+      default:
+        return allWords;
+    }
   };
 
   const handleCategoryPress = (categoryKey: string) => {
@@ -274,16 +326,89 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleWordToggle = async (wordIndex: number, type: 'understanding' | 'speaking') => {
+  const handleWordToggle = async (wordIndex: number, type: 'understanding' | 'speaking', language?: string) => {
     const activeChild = dataService.getActiveChild();
-    if (!activeChild || !expandedLanguage) return;
+    if (!activeChild) return;
 
     // Add haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      const word = words[wordIndex];
+      let word: WordItem;
+      let targetLanguage: string;
+
+      // Determine which array to get the word from
+      if (wordFilter !== 'all' && !expandedLanguage) {
+        // We're in filter mode - get word from filtered language-specific array
+        if (!language) {
+          Alert.alert('Error', 'Language not specified for filtered word');
+          return;
+        }
+        const filteredWords = getFilteredWordsForLanguage(language as 'english' | 'portuguese' | 'spanish');
+        word = filteredWords[wordIndex];
+        targetLanguage = language;
+      } else if (expandedLanguage) {
+        // We're in individual language expanded mode
+        const filteredWords = isSearching ? searchResults : getFilteredWords();
+        word = filteredWords[wordIndex];
+        targetLanguage = expandedLanguage;
+      } else {
+        Alert.alert('Error', 'Cannot determine word context');
+        return;
+      }
+
+      if (!word) {
+        Alert.alert('Error', 'Word not found');
+        return;
+      }
+
       const newValue = !word[type];
+
+      // Handle deselection of "understands" - should also deselect "speaks"
+      if (type === 'understanding' && !newValue && word.speaking) {
+        // If deselecting "understands" and word is currently marked as "speaks",
+        // we need to deselect both - do this in a single update to avoid double refresh
+        const activeChild = dataService.getActiveChild();
+        if (!activeChild) return;
+
+        try {
+          const updateLanguage = targetLanguage || expandedLanguage;
+          if (updateLanguage) {
+            const categoryData = activeChild.categories[updateLanguage as 'english' | 'portuguese' | 'spanish'];
+            let targetCategory = '';
+            let targetWordIndex = -1;
+
+            // Find which category this word belongs to
+            for (const [catKey, category] of Object.entries(categoryData)) {
+              const index = category.words.findIndex(w => w.word === word.word);
+              if (index !== -1) {
+                targetCategory = catKey;
+                targetWordIndex = index;
+                break;
+              }
+            }
+
+            if (targetCategory && targetWordIndex !== -1) {
+              // Update both understanding and speaking in a single call
+              await dataService.updateWordStatus(
+                activeChild.id,
+                updateLanguage as 'english' | 'portuguese' | 'spanish',
+                targetCategory,
+                targetWordIndex,
+                { understanding: false, speaking: false, firstSpokenAge: null }
+              );
+              await loadData();
+              if (expandedLanguage) {
+                loadCategoriesForLanguage(expandedLanguage, true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error in deselection:', error);
+          Alert.alert('Error', 'Failed to update word status');
+        }
+        return;
+      }
 
       // If marking as speaking and it's not already spoken, show age selector
       if (type === 'speaking' && newValue && !word.speaking) {
@@ -294,22 +419,72 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           return;
         }
 
-        // Show integrated age selector
+        // Show integrated age selector - store the word object, not just index
         setEditingWordIndex(wordIndex);
         setTempAge(currentAge);
         return;
       }
 
-      // If marking as understanding, proceed normally
-      if (type === 'understanding') {
-        await updateWordWithAge(wordIndex, type, newValue, null);
-        return;
+      // For all other operations (including deselecting "speaks"), update directly
+      if (targetLanguage) {
+        await updateWordByTextInLanguage(word.word, targetLanguage, type, newValue, null);
+      } else {
+        await updateWordByText(word.word, type, newValue, null);
+      }
+    } catch (error) {
+      console.error('Error in handleWordToggle:', error);
+      Alert.alert('Error', 'Failed to update word status');
+    }
+  };
+
+  const updateWordByText = async (wordText: string, type: 'understanding' | 'speaking', newValue: boolean, age: number | null) => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild || !expandedLanguage) return;
+
+    const categoryData = activeChild.categories[expandedLanguage];
+    let targetCategory = '';
+    let targetWordIndex = -1;
+
+    // Find which category this word belongs to by searching all categories
+    for (const [catKey, category] of Object.entries(categoryData)) {
+      const index = category.words.findIndex(w => w.word === wordText);
+      if (index !== -1) {
+        targetCategory = catKey;
+        targetWordIndex = index;
+        break;
+      }
+    }
+
+    if (targetCategory && targetWordIndex !== -1) {
+      const updates: any = { [type]: newValue };
+
+      // If marking as speaking, set the age
+      if (type === 'speaking' && newValue && age !== null) {
+        updates.firstSpokenAge = age;
       }
 
-      // If unsetting speaking, proceed normally
-      await updateWordWithAge(wordIndex, type, newValue, null);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update word status');
+      // If unsetting speaking, clear the age
+      if (type === 'speaking' && !newValue) {
+        updates.firstSpokenAge = null;
+      }
+
+      try {
+        await dataService.updateWordStatus(
+          activeChild.id,
+          expandedLanguage,
+          targetCategory,
+          targetWordIndex,
+          updates
+        );
+        await loadData();
+        loadCategoriesForLanguage(expandedLanguage, true);
+      } catch (error) {
+        console.error('Error updating word status:', error);
+        Alert.alert('Error', 'Failed to update word status');
+      }
+    } else {
+      console.error('Could not find word in any category:', { wordText, expandedLanguage });
+      Alert.alert('Error', 'Could not find word to update. Please try again.');
     }
   };
 
@@ -359,7 +534,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           updates
         );
         await loadData();
-        loadCategoriesForLanguage(expandedLanguage);
+        loadCategoriesForLanguage(expandedLanguage, true);
       } catch (error) {
         console.error('Error updating word status:', error);
         Alert.alert('Error', 'Failed to update word status');
@@ -370,14 +545,26 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleAddWord = async (word: string, categoryKey: string) => {
+  const handleAddWord = async (word: string, categoryKey: string, language?: string) => {
     const activeChild = dataService.getActiveChild();
-    if (!activeChild || !expandedLanguage) return;
+    if (!activeChild) return;
 
     try {
-      await dataService.addCustomWord(activeChild.id, expandedLanguage, categoryKey, word);
+      // If language is provided, use it; otherwise use expanded language or first available language
+      const targetLanguage = language || expandedLanguage || activeChild.selectedLanguages[0];
+
+      await dataService.addCustomWord(activeChild.id, targetLanguage, categoryKey, word);
       await loadData();
-      loadCategoriesForLanguage(expandedLanguage);
+
+      if (expandedLanguage) {
+        // Preserve the current category selection when refreshing
+        loadCategoriesForLanguage(expandedLanguage, true);
+      }
+
+      // Clear the search query after adding
+      setSearchQuery('');
+      setIsSearching(false);
+      setShowGlobalSearch(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to add word');
     }
@@ -385,18 +572,54 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const getAllExistingWords = (): string[] => {
     const activeChild = dataService.getActiveChild();
-    if (!activeChild || !expandedLanguage) return [];
+    if (!activeChild) return [];
 
-    const categoryData = activeChild.categories[expandedLanguage];
     let allWords: string[] = [];
 
-    Object.values(categoryData).forEach(category => {
-      category.words.forEach(word => {
-        allWords.push(word.word);
+    // If we have an expanded language, get words from that language only
+    if (expandedLanguage) {
+      const categoryData = activeChild.categories[expandedLanguage];
+      Object.values(categoryData).forEach(category => {
+        category.words.forEach(word => {
+          allWords.push(word.word);
+        });
       });
-    });
+    } else {
+      // Otherwise, get words from all selected languages
+      activeChild.selectedLanguages.forEach(language => {
+        const categoryData = activeChild.categories[language];
+        Object.values(categoryData).forEach(category => {
+          category.words.forEach(word => {
+            allWords.push(word.word);
+          });
+        });
+      });
+    }
 
     return allWords;
+  };
+
+  const getCategoriesForAddModal = () => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return [];
+
+    // If we have an expanded language, get categories from that language only
+    if (expandedLanguage) {
+      return categories;
+    } else {
+      // For global context, get categories from English if available, otherwise from first selected language
+      const preferredLanguage = activeChild.selectedLanguages.includes('english')
+        ? 'english'
+        : activeChild.selectedLanguages[0];
+      const categoryData = activeChild.categories[preferredLanguage];
+      return Object.keys(categoryData)
+        .filter(key => key !== 'other')
+        .map(key => ({
+          key,
+          title: categoryData[key].title,
+        }))
+        .concat([{ key: 'other', title: 'Others' }]);
+    }
   };
 
   const handleSearch = (query: string) => {
@@ -507,7 +730,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const renderWordsList = () => {
     const displayWords = isSearching ? searchResults : getFilteredWords();
     const showSearchResults = isSearching && searchQuery.trim();
-    const showAddWordOption = isSearching && searchResults.length === 0 && searchQuery.trim();
 
     return (
       <View style={styles.wordsContainer}>
@@ -518,26 +740,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
              selectedCategory === 'other' ? 'Custom Words' :
              categories.find(c => c.key === selectedCategory)?.title || 'Words'}
           </Text>
-          {!isSearching && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowAddWordModal(true)}
-            >
-              <Text style={styles.addButtonText}>+ Add Word</Text>
-            </TouchableOpacity>
-          )}
         </View>
-
-        {showAddWordOption && (
-          <TouchableOpacity
-            style={styles.addWordFromSearchButton}
-            onPress={handleAddWordFromSearch}
-          >
-            <Text style={styles.addWordFromSearchText}>
-              + Add "{searchQuery}" as new word
-            </Text>
-          </TouchableOpacity>
-        )}
 
 
         <FlatList
@@ -555,7 +758,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           numColumns={2}
           columnWrapperStyle={styles.wordsRow}
           ListEmptyComponent={
-            showSearchResults && !showAddWordOption ? (
+            showSearchResults ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>No words found</Text>
                 <Text style={styles.emptySubtext}>Try a different search term</Text>
@@ -563,7 +766,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             ) : !isSearching ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>No words available</Text>
-                <Text style={styles.emptySubtext}>Tap "Add Word" to get started</Text>
+                <Text style={styles.emptySubtext}>Use the global search above to add words</Text>
               </View>
             ) : null
           }
@@ -573,7 +776,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleDeleteWord = (wordIndex: number) => {
-    const word = words[wordIndex];
+    // Get the word from the filtered display array
+    const filteredWords = isSearching ? searchResults : getFilteredWords();
+    const word = filteredWords[wordIndex];
+
+    if (!word) {
+      Alert.alert('Error', 'Word not found');
+      return;
+    }
+
     Alert.alert(
       'Delete Word',
       `Are you sure you want to delete "${word.word}"? This action cannot be undone.`,
@@ -591,19 +802,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               let targetCategory = '';
               let targetWordIndex = -1;
 
-              // Find which category this word belongs to
-              if (selectedCategory === 'all') {
-                for (const [catKey, category] of Object.entries(categoryData)) {
-                  const index = category.words.findIndex(w => w.word === word.word);
-                  if (index !== -1) {
-                    targetCategory = catKey;
-                    targetWordIndex = index;
-                    break;
-                  }
+              // Find which category this word belongs to by searching all categories
+              for (const [catKey, category] of Object.entries(categoryData)) {
+                const index = category.words.findIndex(w => w.word === word.word);
+                if (index !== -1) {
+                  targetCategory = catKey;
+                  targetWordIndex = index;
+                  break;
                 }
-              } else {
-                targetCategory = selectedCategory;
-                targetWordIndex = wordIndex;
               }
 
               if (targetCategory && targetWordIndex !== -1) {
@@ -614,9 +820,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   targetWordIndex
                 );
                 await loadData();
-                loadCategoriesForLanguage(expandedLanguage);
+                loadCategoriesForLanguage(expandedLanguage, true);
+              } else {
+                Alert.alert('Error', 'Could not find word to delete');
               }
             } catch (error) {
+              console.error('Error deleting word:', error);
               Alert.alert('Error', 'Failed to delete word');
             }
           }
@@ -638,14 +847,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const confirmAgeSelection = async () => {
     if (editingWordIndex !== null) {
-      const word = words[editingWordIndex];
+      // Get the word from the filtered display array
+      const filteredWords = isSearching ? searchResults : getFilteredWords();
+      const word = filteredWords[editingWordIndex];
+
+      if (!word) {
+        Alert.alert('Error', 'Word not found');
+        setEditingWordIndex(null);
+        return;
+      }
 
       // Mark word as speaking with age
-      await updateWordWithAge(editingWordIndex, 'speaking', true, tempAge);
+      await updateWordByText(word.word, 'speaking', true, tempAge);
 
       // If the word is not already understood, mark it as understood too
       if (!word.understanding) {
-        await updateWordWithAge(editingWordIndex, 'understanding', true, null);
+        await updateWordByText(word.word, 'understanding', true, null);
       }
 
       setEditingWordIndex(null);
@@ -656,19 +873,42 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setEditingWordIndex(null);
   };
 
+  const getAllWordsFromAllLanguages = () => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return [];
+
+    let allWords: (WordItem & { language: string })[] = [];
+
+    // Get words from all selected languages
+    activeChild.selectedLanguages.forEach(language => {
+      const categoryData = activeChild.categories[language];
+      Object.values(categoryData).forEach(category => {
+        category.words.forEach(word => {
+          allWords.push({ ...word, language });
+        });
+      });
+    });
+
+    return allWords;
+  };
+
   const renderGlobalWordFilter = () => {
-    if (!activeChild || !expandedLanguage || !words.length) return null;
+    if (!activeChild) return null;
+
+    const allWords = getAllWordsFromAllLanguages();
+    const understoodWords = allWords.filter(w => w.understanding);
+    const spokenWords = allWords.filter(w => w.speaking);
 
     return (
       <View style={styles.globalFilterContainer}>
-        <Text style={styles.globalFilterTitle}>Word Filter</Text>
+        <Text style={styles.globalFilterTitle}>Word Filter (All Languages)</Text>
         <View style={styles.filterContainer}>
           <TouchableOpacity
             style={[styles.filterButton, wordFilter === 'all' && styles.activeFilterButton]}
             onPress={() => handleFilterPress('all')}
           >
             <Text style={[styles.filterButtonText, wordFilter === 'all' && styles.activeFilterButtonText]}>
-              All ({words.length})
+              All ({allWords.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -676,7 +916,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleFilterPress('understood')}
           >
             <Text style={[styles.filterButtonText, wordFilter === 'understood' && styles.activeFilterButtonText]}>
-              Understood ({words.filter(w => w.understanding).length})
+              Understood ({understoodWords.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -684,7 +924,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleFilterPress('spoken')}
           >
             <Text style={[styles.filterButtonText, wordFilter === 'spoken' && styles.activeFilterButtonText]}>
-              Spoken ({words.filter(w => w.speaking).length})
+              Spoken ({spokenWords.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -692,7 +932,410 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const renderWordCard = useCallback(({ item, index }: { item: WordItem; index: number }) => {
+  const renderWordsListForFilter = (language: 'english' | 'portuguese' | 'spanish') => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return null;
+
+    // Get filtered words organized by category
+    const getFilteredWordsByCategory = () => {
+      const categoryData = activeChild.categories[language];
+      let displayWords: WordItem[] = [];
+
+      if (selectedCategory === 'all') {
+        // Show all filtered words from all categories
+        Object.values(categoryData).forEach(category => {
+          const filteredCategoryWords = category.words.filter(word => {
+            switch (wordFilter) {
+              case 'understood':
+                return word.understanding;
+              case 'spoken':
+                return word.speaking;
+              default:
+                return true;
+            }
+          });
+          displayWords = displayWords.concat(filteredCategoryWords);
+        });
+      } else {
+        // Show filtered words from selected category only
+        const category = categoryData[selectedCategory];
+        if (category) {
+          displayWords = category.words.filter(word => {
+            switch (wordFilter) {
+              case 'understood':
+                return word.understanding;
+              case 'spoken':
+                return word.speaking;
+              default:
+                return true;
+            }
+          });
+        }
+      }
+
+      return displayWords;
+    };
+
+    const displayWords = getFilteredWordsByCategory();
+
+    return (
+      <View style={styles.wordsContainer}>
+        <View style={styles.wordsHeader}>
+          <Text style={styles.wordsTitle}>
+            {selectedCategory === 'all' ? 'All Words' :
+             selectedCategory === 'other' ? 'Custom Words' :
+             categories.find(c => c.key === selectedCategory)?.title || 'Words'} - {
+             wordFilter === 'understood' ? 'Understands' :
+             wordFilter === 'spoken' ? 'Speaks' : 'All'
+            }
+          </Text>
+        </View>
+
+        <FlatList
+          data={displayWords}
+          renderItem={({ item, index }) => renderWordCard({ item, index }, language)}
+          keyExtractor={(item, index) => `${language}-${item.word}-${index}`}
+          style={styles.wordsList}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={15}
+          windowSize={10}
+          scrollEnabled={false}
+          numColumns={2}
+          columnWrapperStyle={styles.wordsRow}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No words match this filter</Text>
+              <Text style={styles.emptySubtext}>Try selecting a different category or filter</Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  };
+
+  const renderFilteredLanguageSection = (language: 'english' | 'portuguese' | 'spanish') => {
+    const filteredWords = getFilteredWordsForLanguage(language);
+
+    if (filteredWords.length === 0) {
+      return null; // Don't show empty language sections
+    }
+
+    const languageColors = {
+      english: theme.colors.english,
+      portuguese: theme.colors.portuguese,
+      spanish: theme.colors.spanish
+    };
+
+    const languageNames = {
+      english: 'English',
+      portuguese: 'Portuguese',
+      spanish: 'Spanish'
+    };
+
+    const isExpanded = expandedLanguage === language;
+
+    return (
+      <View key={`filtered-${language}`} style={styles.languageSection}>
+        <TouchableOpacity
+          onPress={() => handleLanguagePress(language)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={isExpanded
+              ? [languageColors[language], languageColors[language]]
+              : ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
+            style={[styles.languageButton, isExpanded && styles.expandedLanguageButton]}
+          >
+            <Text style={[
+              styles.languageButtonText,
+              isExpanded && styles.expandedLanguageButtonText
+            ]}>
+              {languageNames[language]} Words ({filteredWords.length})
+            </Text>
+            <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.expandedContent}>
+            {renderCategoryTabs()}
+            {renderWordsListForFilter(language)}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderGlobalSearchBar = () => {
+    return (
+      <View style={styles.globalSearchContainer}>
+        <TextInput
+          style={[styles.searchInput, styles.flexSearchInput]}
+          placeholder="Search all words across all languages..."
+          value={searchQuery}
+          onChangeText={handleGlobalSearch}
+          placeholderTextColor={theme.colors.textSecondary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowAddWordModal(true)}
+        >
+          <Text style={styles.addButtonText}>+ Add Word</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const handleGlobalSearch = (query: string) => {
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setIsSearching(false);
+      setShowGlobalSearch(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowGlobalSearch(true);
+
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) {
+      setSearchResults([]);
+      return;
+    }
+
+    const allWords = getAllWordsFromAllLanguages();
+    const results = allWords.filter(word =>
+      word.word.toLowerCase().includes(query.toLowerCase())
+    );
+
+    setSearchResults(results);
+  };
+
+  const renderGlobalWordView = () => {
+    if (!showGlobalSearch && !isSearching) return null;
+
+    const displayWords = isSearching ? searchResults : globalFilteredWords;
+    const title = isSearching ? 'Search Results' :
+                  wordFilter === 'understood' ? 'Words Child Understands' :
+                  wordFilter === 'spoken' ? 'Words Child Speaks' : 'All Words';
+
+    return (
+      <View style={styles.globalWordsContainer}>
+        <View style={styles.globalWordsHeader}>
+          <Text style={styles.globalWordsTitle}>{title}</Text>
+          <TouchableOpacity
+            style={styles.closeGlobalButton}
+            onPress={() => {
+              setShowGlobalSearch(false);
+              setIsSearching(false);
+              setSearchQuery('');
+              setWordFilter('all');
+            }}
+          >
+            <Text style={styles.closeGlobalButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        {isSearching && searchResults.length === 0 && searchQuery.trim() && (
+          <TouchableOpacity
+            style={styles.addWordFromSearchButton}
+            onPress={() => {
+              setShowAddWordModal(true);
+            }}
+          >
+            <Text style={styles.addWordFromSearchText}>
+              + Add "{searchQuery}" as new word
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <FlatList
+          data={displayWords}
+          renderItem={renderGlobalWordCard}
+          keyExtractor={(item, index) => `${item.word}-${item.language}-${index}`}
+          style={styles.globalWordsList}
+          showsVerticalScrollIndicator={false}
+          numColumns={2}
+          columnWrapperStyle={styles.wordsRow}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {isSearching ? 'No words found' : 'No words match this filter'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                {isSearching ? 'Try a different search term' : 'Try selecting different words in the language sections'}
+              </Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  };
+
+  const renderGlobalWordCard = useCallback(({ item, index }: { item: WordItem & { language: string }; index: number }) => {
+    const languageColor = item.language === 'english' ? theme.colors.english :
+                         item.language === 'portuguese' ? theme.colors.portuguese :
+                         theme.colors.spanish;
+
+    return (
+      <View style={[styles.wordCard, styles.globalWordCard]}>
+        <View style={styles.wordHeader}>
+          <Text style={styles.wordText}>{item.word}</Text>
+          <View style={[styles.languageBadge, { backgroundColor: languageColor }]}>
+            <Text style={styles.languageBadgeText}>
+              {item.language.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.wordActions}>
+          <TouchableOpacity
+            style={[styles.wordButton, item.understanding && styles.activeWordButton]}
+            onPress={() => handleGlobalWordToggle(item, 'understanding')}
+          >
+            <Text style={[styles.wordButtonText, item.understanding && styles.activeWordButtonText]}>
+              Understands
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.wordButton, item.speaking && styles.activeWordButton]}
+            onPress={() => handleGlobalWordToggle(item, 'speaking')}
+          >
+            <Text style={[styles.wordButtonText, item.speaking && styles.activeWordButtonText]}>
+              Speaks
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {item.firstSpokenAge && (
+          <Text style={styles.ageText}>First spoken at {item.firstSpokenAge} months</Text>
+        )}
+      </View>
+    );
+  }, []);
+
+  const handleGlobalWordToggle = async (word: WordItem & { language: string }, type: 'understanding' | 'speaking') => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return;
+
+    // Add haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const newValue = !word[type];
+
+      // If marking as speaking and it's not already spoken, show age selector
+      if (type === 'speaking' && newValue && !word.speaking) {
+        const currentAge = activeChild.birthDate ? dataService.calculateAgeInMonths(activeChild.birthDate) : null;
+
+        if (currentAge === null) {
+          Alert.alert('Age Required', 'Please set a birth date for this child to track speaking ages.');
+          return;
+        }
+
+        // For global words, we'll use the first speaking age directly
+        await updateWordByTextInLanguage(word.word, word.language, type, newValue, currentAge);
+        return;
+      }
+
+      // For other operations
+      await updateWordByTextInLanguage(word.word, word.language, type, newValue, null);
+    } catch (error) {
+      console.error('Error in handleGlobalWordToggle:', error);
+      Alert.alert('Error', 'Failed to update word status');
+    }
+  };
+
+  const updateWordByTextInLanguage = async (
+    wordText: string,
+    language: string,
+    type: 'understanding' | 'speaking',
+    newValue: boolean,
+    age: number | null
+  ) => {
+    const activeChild = dataService.getActiveChild();
+    if (!activeChild) return;
+
+    const categoryData = activeChild.categories[language as 'english' | 'portuguese' | 'spanish'];
+    let targetCategory = '';
+    let targetWordIndex = -1;
+
+    // Find which category this word belongs to
+    for (const [catKey, category] of Object.entries(categoryData)) {
+      const index = category.words.findIndex(w => w.word === wordText);
+      if (index !== -1) {
+        targetCategory = catKey;
+        targetWordIndex = index;
+        break;
+      }
+    }
+
+    if (targetCategory && targetWordIndex !== -1) {
+      const updates: any = { [type]: newValue };
+
+      // If marking as speaking, set the age
+      if (type === 'speaking' && newValue && age !== null) {
+        updates.firstSpokenAge = age;
+      }
+
+      // If unsetting speaking, clear the age
+      if (type === 'speaking' && !newValue) {
+        updates.firstSpokenAge = null;
+      }
+
+      try {
+        await dataService.updateWordStatus(
+          activeChild.id,
+          language as 'english' | 'portuguese' | 'spanish',
+          targetCategory,
+          targetWordIndex,
+          updates
+        );
+        await loadData();
+
+        // Refresh the global filtered words if we're in filter mode
+        if (wordFilter !== 'all') {
+          // Recalculate and update filtered words
+          const allWords = getAllWordsFromAllLanguages();
+          let filteredWords = allWords;
+
+          switch (wordFilter) {
+            case 'understood':
+              filteredWords = allWords.filter(word => word.understanding);
+              break;
+            case 'spoken':
+              filteredWords = allWords.filter(word => word.speaking);
+              break;
+            default:
+              filteredWords = allWords;
+          }
+
+          setGlobalFilteredWords(filteredWords);
+        }
+
+        // Also refresh the current language's words if we're in expanded mode
+        if (expandedLanguage) {
+          loadCategoriesForLanguage(expandedLanguage, true);
+        }
+      } catch (error) {
+        console.error('Error updating word status:', error);
+        Alert.alert('Error', 'Failed to update word status');
+      }
+    } else {
+      console.error('Could not find word in language:', { wordText, language });
+      Alert.alert('Error', 'Could not find word to update. Please try again.');
+    }
+  };
+
+  const renderWordCard = useCallback(({ item, index }: { item: WordItem; index: number }, language?: string) => {
     return (
       <View style={styles.wordCard}>
         <View style={styles.wordHeader}>
@@ -736,7 +1379,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.wordActions}>
             <TouchableOpacity
               style={[styles.wordButton, item.understanding && styles.activeWordButton]}
-              onPress={() => handleWordToggle(index, 'understanding')}
+              onPress={() => handleWordToggle(index, 'understanding', language)}
             >
               <Text style={[styles.wordButtonText, item.understanding && styles.activeWordButtonText]}>
                 Understands
@@ -744,7 +1387,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.wordButton, item.speaking && styles.activeWordButton]}
-              onPress={() => handleWordToggle(index, 'speaking')}
+              onPress={() => handleWordToggle(index, 'speaking', language)}
             >
               <Text style={[styles.wordButtonText, item.speaking && styles.activeWordButtonText]}>
                 Speaks
@@ -881,82 +1524,97 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <LiveStatsComponent child={activeChild} language={expandedLanguage || 'english'} />
       )}
 
+      {/* Global Search Bar */}
+      {renderGlobalSearchBar()}
+
       {/* Global Word Filter */}
       {renderGlobalWordFilter()}
 
+      {/* Global Word View */}
+      {renderGlobalWordView()}
+
       {/* Language Sections */}
-      {activeChild && (
+      {activeChild && !isSearching && (
         <View style={styles.section}>
-          {activeChild.selectedLanguages.includes('english') && (
-            <View style={styles.languageSection}>
-              <TouchableOpacity
-                onPress={() => handleLanguagePress('english')}
-              >
-                <LinearGradient
-                  colors={expandedLanguage === 'english' ? [theme.colors.english, theme.colors.english] : gradients.card}
-                  style={[styles.languageButton, expandedLanguage === 'english' && styles.expandedLanguageButton]}
-                >
-                  <Text style={[styles.languageButtonText, expandedLanguage === 'english' && styles.expandedLanguageButtonText]}>English Words</Text>
-                  <Text style={styles.expandIcon}>{expandedLanguage === 'english' ? '▼' : '▶'}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+          {wordFilter !== 'all' ? (
+            // Show filtered language sections when filtering is active
+            <>
+              {activeChild.selectedLanguages.includes('english') && renderFilteredLanguageSection('english')}
+              {activeChild.selectedLanguages.includes('portuguese') && renderFilteredLanguageSection('portuguese')}
+              {activeChild.selectedLanguages.includes('spanish') && renderFilteredLanguageSection('spanish')}
+            </>
+          ) : (
+            // Show normal expandable sections when no filter is active
+            <>
+              {activeChild.selectedLanguages.includes('english') && (
+                <View style={styles.languageSection}>
+                  <TouchableOpacity
+                    onPress={() => handleLanguagePress('english')}
+                  >
+                    <LinearGradient
+                      colors={expandedLanguage === 'english' ? [theme.colors.english, theme.colors.english] : gradients.card}
+                      style={[styles.languageButton, expandedLanguage === 'english' && styles.expandedLanguageButton]}
+                    >
+                      <Text style={[styles.languageButtonText, expandedLanguage === 'english' && styles.expandedLanguageButtonText]}>English Words</Text>
+                      <Text style={styles.expandIcon}>{expandedLanguage === 'english' ? '▼' : '▶'}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-              {expandedLanguage === 'english' && (
-                <View style={styles.expandedContent}>
-                  {renderSearchBar()}
-                  {renderCategoryTabs()}
-                  {renderWordsList()}
+                  {expandedLanguage === 'english' && (
+                    <View style={styles.expandedContent}>
+                      {renderCategoryTabs()}
+                      {renderWordsList()}
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
 
-          {activeChild.selectedLanguages.includes('portuguese') && (
-            <View style={styles.languageSection}>
-              <TouchableOpacity
-                onPress={() => handleLanguagePress('portuguese')}
-              >
-                <LinearGradient
-                  colors={expandedLanguage === 'portuguese' ? [theme.colors.portuguese, theme.colors.portuguese] : gradients.card}
-                  style={[styles.languageButton, expandedLanguage === 'portuguese' && styles.expandedLanguageButton]}
-                >
-                  <Text style={[styles.languageButtonText, expandedLanguage === 'portuguese' && styles.expandedLanguageButtonText]}>Portuguese Words</Text>
-                  <Text style={styles.expandIcon}>{expandedLanguage === 'portuguese' ? '▼' : '▶'}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              {activeChild.selectedLanguages.includes('portuguese') && (
+                <View style={styles.languageSection}>
+                  <TouchableOpacity
+                    onPress={() => handleLanguagePress('portuguese')}
+                  >
+                    <LinearGradient
+                      colors={expandedLanguage === 'portuguese' ? [theme.colors.portuguese, theme.colors.portuguese] : gradients.card}
+                      style={[styles.languageButton, expandedLanguage === 'portuguese' && styles.expandedLanguageButton]}
+                    >
+                      <Text style={[styles.languageButtonText, expandedLanguage === 'portuguese' && styles.expandedLanguageButtonText]}>Portuguese Words</Text>
+                      <Text style={styles.expandIcon}>{expandedLanguage === 'portuguese' ? '▼' : '▶'}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-              {expandedLanguage === 'portuguese' && (
-                <View style={styles.expandedContent}>
-                  {renderSearchBar()}
-                  {renderCategoryTabs()}
-                  {renderWordsList()}
+                  {expandedLanguage === 'portuguese' && (
+                    <View style={styles.expandedContent}>
+                      {renderCategoryTabs()}
+                      {renderWordsList()}
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
-          )}
 
-          {activeChild.selectedLanguages.includes('spanish') && (
-            <View style={styles.languageSection}>
-              <TouchableOpacity
-                onPress={() => handleLanguagePress('spanish')}
-              >
-                <LinearGradient
-                  colors={expandedLanguage === 'spanish' ? [theme.colors.spanish, theme.colors.spanish] : gradients.card}
-                  style={[styles.languageButton, expandedLanguage === 'spanish' && styles.expandedLanguageButton]}
-                >
-                  <Text style={[styles.languageButtonText, expandedLanguage === 'spanish' && styles.expandedLanguageButtonText]}>Spanish Words</Text>
-                  <Text style={styles.expandIcon}>{expandedLanguage === 'spanish' ? '▼' : '▶'}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              {activeChild.selectedLanguages.includes('spanish') && (
+                <View style={styles.languageSection}>
+                  <TouchableOpacity
+                    onPress={() => handleLanguagePress('spanish')}
+                  >
+                    <LinearGradient
+                      colors={expandedLanguage === 'spanish' ? [theme.colors.spanish, theme.colors.spanish] : gradients.card}
+                      style={[styles.languageButton, expandedLanguage === 'spanish' && styles.expandedLanguageButton]}
+                    >
+                      <Text style={[styles.languageButtonText, expandedLanguage === 'spanish' && styles.expandedLanguageButtonText]}>Spanish Words</Text>
+                      <Text style={styles.expandIcon}>{expandedLanguage === 'spanish' ? '▼' : '▶'}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-              {expandedLanguage === 'spanish' && (
-                <View style={styles.expandedContent}>
-                  {renderSearchBar()}
-                  {renderCategoryTabs()}
-                  {renderWordsList()}
+                  {expandedLanguage === 'spanish' && (
+                    <View style={styles.expandedContent}>
+                      {renderCategoryTabs()}
+                      {renderWordsList()}
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
+            </>
           )}
         </View>
       )}
@@ -997,8 +1655,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => setShowAddWordModal(false)}
         onSave={handleAddWord}
         existingWords={getAllExistingWords()}
-        categories={categories.map(cat => ({ key: cat.key, title: cat.title }))}
+        categories={getCategoriesForAddModal()}
         initialWord={searchQuery}
+        languages={activeChild?.selectedLanguages}
       />
       </ScrollView>
     </LinearGradient>
@@ -1272,8 +1931,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
-    flex: 1,
-    marginHorizontal: theme.spacing.xs,
+    width: '48%',
+    marginHorizontal: '1%',
     ...shadows.sm,
   },
   wordText: {
@@ -1288,7 +1947,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   wordsRow: {
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   wordButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -1488,6 +2147,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     ...shadows.sm,
   },
+  flexSearchInput: {
+    flex: 1,
+  },
   addWordFromSearchButton: {
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.md,
@@ -1547,6 +2209,61 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
+  },
+  globalSearchContainer: {
+    margin: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  globalWordsContainer: {
+    margin: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    ...shadows.md,
+  },
+  globalWordsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  globalWordsTitle: {
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    flex: 1,
+  },
+  closeGlobalButton: {
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.border,
+    borderRadius: theme.borderRadius.sm,
+  },
+  closeGlobalButtonText: {
+    fontSize: theme.fontSizes.lg,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  globalWordsList: {
+    maxHeight: 400,
+  },
+  globalWordCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.primary,
+  },
+  languageBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  languageBadgeText: {
+    color: '#ffffff',
+    fontSize: theme.fontSizes.xs,
+    fontWeight: 'bold',
   },
 });
 

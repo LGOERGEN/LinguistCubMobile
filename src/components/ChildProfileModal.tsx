@@ -167,7 +167,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
                   maximumDate={new Date()}
-                  minimumDate={new Date(2020, 0, 1)}
+                  minimumDate={new Date(1900, 0, 1)}
                 />
               )}
             </View>

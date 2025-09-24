@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,11 @@ import { theme, shadows } from '../constants/theme';
 interface AddWordModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (word: string, category: string) => void;
+  onSave: (word: string, category: string, language?: string) => void;
   existingWords: string[];
   categories: { key: string; title: string }[];
+  initialWord?: string;
+  languages?: ('english' | 'portuguese' | 'spanish')[];
 }
 
 const AddWordModal: React.FC<AddWordModalProps> = ({
@@ -26,9 +28,19 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
   onSave,
   existingWords,
   categories,
+  initialWord,
+  languages,
 }) => {
-  const [word, setWord] = useState('');
+  const [word, setWord] = useState(initialWord || '');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<'english' | 'portuguese' | 'spanish' | ''>('');
+
+  // Update word when initialWord prop changes
+  useEffect(() => {
+    if (visible) {
+      setWord(initialWord || '');
+    }
+  }, [visible, initialWord]);
 
   const handleSave = () => {
     if (!word.trim()) {
@@ -51,13 +63,20 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
-    onSave(word.trim(), selectedCategory);
+    // Check if language is required
+    if (languages && languages.length > 1 && !selectedLanguage) {
+      Alert.alert('Select Language', 'Please select a language for this word');
+      return;
+    }
+
+    onSave(word.trim(), selectedCategory, selectedLanguage || undefined);
     handleClose();
   };
 
   const handleClose = () => {
-    setWord('');
+    setWord(initialWord || '');
     setSelectedCategory('');
+    setSelectedLanguage('');
     onClose();
   };
 
@@ -91,6 +110,38 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
                 autoCorrect={false}
               />
             </View>
+
+            {languages && languages.length > 1 && (
+              <View style={styles.section}>
+                <Text style={styles.label}>Language *</Text>
+                <Text style={styles.sublabel}>Select which language this word belongs to</Text>
+
+                {languages.map((language) => (
+                  <TouchableOpacity
+                    key={language}
+                    style={[
+                      styles.categoryButton,
+                      selectedLanguage === language && styles.selectedCategory
+                    ]}
+                    onPress={() => setSelectedLanguage(language)}
+                  >
+                    <View style={styles.categoryRow}>
+                      <View style={[
+                        styles.radio,
+                        selectedLanguage === language && styles.radioSelected
+                      ]} />
+                      <Text style={[
+                        styles.categoryText,
+                        selectedLanguage === language && styles.selectedCategoryText
+                      ]}>
+                        {language === 'english' ? 'English' :
+                         language === 'portuguese' ? 'Portuguese' : 'Spanish'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={styles.label}>Category *</Text>

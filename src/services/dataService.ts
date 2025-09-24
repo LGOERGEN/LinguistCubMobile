@@ -53,7 +53,7 @@ class DataService {
     return this.data;
   }
 
-  async createChild(name: string, birthDate: string | null, selectedLanguages: ('english' | 'portuguese')[]): Promise<string> {
+  async createChild(name: string, birthDate: string | null, selectedLanguages: ('english' | 'portuguese' | 'spanish')[]): Promise<string> {
     if (!this.data) {
       await this.initializeData();
     }
@@ -135,7 +135,7 @@ class DataService {
 
   async updateWordStatus(
     childId: string,
-    language: 'english' | 'portuguese',
+    language: 'english' | 'portuguese' | 'spanish',
     categoryKey: string,
     wordIndex: number,
     updates: { understanding?: boolean; speaking?: boolean; firstSpokenAge?: number | null }
@@ -166,7 +166,7 @@ class DataService {
 
   async addCustomWord(
     childId: string,
-    language: 'english' | 'portuguese',
+    language: 'english' | 'portuguese' | 'spanish',
     categoryKey: string,
     wordText: string
   ): Promise<void> {
@@ -195,7 +195,7 @@ class DataService {
 
   async removeWord(
     childId: string,
-    language: 'english' | 'portuguese',
+    language: 'english' | 'portuguese' | 'spanish',
     categoryKey: string,
     wordIndex: number
   ): Promise<void> {
