@@ -49,7 +49,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [showChildModal, setShowChildModal] = useState(false);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
-  const [expandedLanguage, setExpandedLanguage] = useState<'english' | 'portuguese' | null>(null);
+  const [expandedLanguage, setExpandedLanguage] = useState<'english' | 'portuguese' | 'spanish' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [words, setWords] = useState<WordItem[]>([]);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
@@ -59,6 +59,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<WordItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [wordFilter, setWordFilter] = useState<'all' | 'understood' | 'spoken'>('all');
 
   const loadData = async () => {
     try {
@@ -189,7 +190,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return `${months} months`;
   };
 
-  const handleLanguagePress = (language: 'english' | 'portuguese') => {
+  const handleLanguagePress = (language: 'english' | 'portuguese' | 'spanish') => {
     if (expandedLanguage === language) {
       setExpandedLanguage(null);
       setSelectedCategory('all');
@@ -202,7 +203,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const loadCategoriesForLanguage = (language: 'english' | 'portuguese') => {
+  const loadCategoriesForLanguage = (language: 'english' | 'portuguese' | 'spanish') => {
     const activeChild = dataService.getActiveChild();
     if (!activeChild) return;
 
@@ -225,7 +226,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return '';
   };
 
-  const loadWordsForCategory = (categoryKey: string, language: 'english' | 'portuguese', child: Child) => {
+  const loadWordsForCategory = (categoryKey: string, language: 'english' | 'portuguese' | 'spanish', child: Child) => {
     const categoryData = child.categories[language];
     let allWords: WordItem[] = [];
 
@@ -244,6 +245,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setWords(allWords);
+  };
+
+  const getFilteredWords = () => {
+    switch (wordFilter) {
+      case 'understood':
+        return words.filter(word => word.understanding);
+      case 'spoken':
+        return words.filter(word => word.speaking);
+      default:
+        return words;
+    }
+  };
+
+  const handleFilterPress = (filter: 'all' | 'understood' | 'spoken') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setWordFilter(filter);
   };
 
   const handleCategoryPress = (categoryKey: string) => {
@@ -488,7 +505,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderWordsList = () => {
-    const displayWords = isSearching ? searchResults : words;
+    const displayWords = isSearching ? searchResults : getFilteredWords();
     const showSearchResults = isSearching && searchQuery.trim();
     const showAddWordOption = isSearching && searchResults.length === 0 && searchQuery.trim();
 
@@ -521,6 +538,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         )}
+
 
         <FlatList
           data={displayWords}
@@ -638,71 +656,107 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setEditingWordIndex(null);
   };
 
+  const renderGlobalWordFilter = () => {
+    if (!activeChild || !expandedLanguage || !words.length) return null;
+
+    return (
+      <View style={styles.globalFilterContainer}>
+        <Text style={styles.globalFilterTitle}>Word Filter</Text>
+        <View style={styles.filterContainer}>
+          <TouchableOpacity
+            style={[styles.filterButton, wordFilter === 'all' && styles.activeFilterButton]}
+            onPress={() => handleFilterPress('all')}
+          >
+            <Text style={[styles.filterButtonText, wordFilter === 'all' && styles.activeFilterButtonText]}>
+              All ({words.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, wordFilter === 'understood' && styles.activeFilterButton]}
+            onPress={() => handleFilterPress('understood')}
+          >
+            <Text style={[styles.filterButtonText, wordFilter === 'understood' && styles.activeFilterButtonText]}>
+              Understood ({words.filter(w => w.understanding).length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, wordFilter === 'spoken' && styles.activeFilterButton]}
+            onPress={() => handleFilterPress('spoken')}
+          >
+            <Text style={[styles.filterButtonText, wordFilter === 'spoken' && styles.activeFilterButtonText]}>
+              Spoken ({words.filter(w => w.speaking).length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderWordCard = useCallback(({ item, index }: { item: WordItem; index: number }) => {
     return (
-    <View style={styles.wordCard}>
-      <View style={styles.wordHeader}>
-        <Text style={styles.wordText}>{item.word}</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteWord(index)}
-        >
-          <Text style={styles.deleteButtonText}>×</Text>
-        </TouchableOpacity>
+      <View style={styles.wordCard}>
+        <View style={styles.wordHeader}>
+          <Text style={styles.wordText}>{item.word}</Text>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteWord(index)}
+          >
+            <Text style={styles.deleteButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        {editingWordIndex === index ? (
+          <View style={styles.ageSelector}>
+            <Text style={styles.ageSelectorTitle}>At what age did they first say this word?</Text>
+            <View style={styles.ageControls}>
+              <TouchableOpacity
+                style={styles.ageButton}
+                onPress={() => handleAgeChange('down')}
+              >
+                <Text style={styles.ageButtonText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.ageDisplay}>{tempAge} months</Text>
+              <TouchableOpacity
+                style={styles.ageButton}
+                onPress={() => handleAgeChange('up')}
+              >
+                <Text style={styles.ageButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ageActions}>
+              <TouchableOpacity style={styles.ageCancelButton} onPress={cancelAgeSelection}>
+                <Text style={styles.ageSymbolText}>×</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ageConfirmButton} onPress={confirmAgeSelection}>
+                <Text style={[styles.ageSymbolText, { color: '#ffffff' }]}>✔</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.wordActions}>
+            <TouchableOpacity
+              style={[styles.wordButton, item.understanding && styles.activeWordButton]}
+              onPress={() => handleWordToggle(index, 'understanding')}
+            >
+              <Text style={[styles.wordButtonText, item.understanding && styles.activeWordButtonText]}>
+                Understands
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.wordButton, item.speaking && styles.activeWordButton]}
+              onPress={() => handleWordToggle(index, 'speaking')}
+            >
+              <Text style={[styles.wordButtonText, item.speaking && styles.activeWordButtonText]}>
+                Speaks
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {item.firstSpokenAge && editingWordIndex !== index && (
+          <Text style={styles.ageText}>First spoken at {item.firstSpokenAge} months</Text>
+        )}
       </View>
-
-      {editingWordIndex === index ? (
-        <View style={styles.ageSelector}>
-          <Text style={styles.ageSelectorTitle}>At what age did they first say this word?</Text>
-          <View style={styles.ageControls}>
-            <TouchableOpacity
-              style={styles.ageButton}
-              onPress={() => handleAgeChange('down')}
-            >
-              <Text style={styles.ageButtonText}>−</Text>
-            </TouchableOpacity>
-            <Text style={styles.ageDisplay}>{tempAge} months</Text>
-            <TouchableOpacity
-              style={styles.ageButton}
-              onPress={() => handleAgeChange('up')}
-            >
-              <Text style={styles.ageButtonText}>+</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.ageActions}>
-            <TouchableOpacity style={styles.ageCancelButton} onPress={cancelAgeSelection}>
-              <Text style={styles.ageSymbolText}>×</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ageConfirmButton} onPress={confirmAgeSelection}>
-              <Text style={[styles.ageSymbolText, { color: '#ffffff' }]}>✔</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.wordActions}>
-          <TouchableOpacity
-            style={[styles.wordButton, item.understanding && styles.activeWordButton]}
-            onPress={() => handleWordToggle(index, 'understanding')}
-          >
-            <Text style={[styles.wordButtonText, item.understanding && styles.activeWordButtonText]}>
-              Understands
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.wordButton, item.speaking && styles.activeWordButton]}
-            onPress={() => handleWordToggle(index, 'speaking')}
-          >
-            <Text style={[styles.wordButtonText, item.speaking && styles.activeWordButtonText]}>
-              Speaks
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {item.firstSpokenAge && editingWordIndex !== index && (
-        <Text style={styles.ageText}>First spoken at {item.firstSpokenAge} months</Text>
-      )}
-    </View>
     );
   }, [editingWordIndex, handleWordToggle, confirmAgeSelection, cancelAgeSelection]);
 
@@ -827,18 +881,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <LiveStatsComponent child={activeChild} language={expandedLanguage || 'english'} />
       )}
 
+      {/* Global Word Filter */}
+      {renderGlobalWordFilter()}
+
       {/* Language Sections */}
       {activeChild && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Languages</Text>
-
           {activeChild.selectedLanguages.includes('english') && (
             <View style={styles.languageSection}>
               <TouchableOpacity
                 onPress={() => handleLanguagePress('english')}
               >
                 <LinearGradient
-                  colors={expandedLanguage === 'english' ? gradients.primaryCard : gradients.card}
+                  colors={expandedLanguage === 'english' ? [theme.colors.english, theme.colors.english] : gradients.card}
                   style={[styles.languageButton, expandedLanguage === 'english' && styles.expandedLanguageButton]}
                 >
                   <Text style={[styles.languageButtonText, expandedLanguage === 'english' && styles.expandedLanguageButtonText]}>English Words</Text>
@@ -862,7 +917,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => handleLanguagePress('portuguese')}
               >
                 <LinearGradient
-                  colors={expandedLanguage === 'portuguese' ? gradients.primaryCard : gradients.card}
+                  colors={expandedLanguage === 'portuguese' ? [theme.colors.portuguese, theme.colors.portuguese] : gradients.card}
                   style={[styles.languageButton, expandedLanguage === 'portuguese' && styles.expandedLanguageButton]}
                 >
                   <Text style={[styles.languageButtonText, expandedLanguage === 'portuguese' && styles.expandedLanguageButtonText]}>Portuguese Words</Text>
@@ -871,6 +926,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
 
               {expandedLanguage === 'portuguese' && (
+                <View style={styles.expandedContent}>
+                  {renderSearchBar()}
+                  {renderCategoryTabs()}
+                  {renderWordsList()}
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeChild.selectedLanguages.includes('spanish') && (
+            <View style={styles.languageSection}>
+              <TouchableOpacity
+                onPress={() => handleLanguagePress('spanish')}
+              >
+                <LinearGradient
+                  colors={expandedLanguage === 'spanish' ? [theme.colors.spanish, theme.colors.spanish] : gradients.card}
+                  style={[styles.languageButton, expandedLanguage === 'spanish' && styles.expandedLanguageButton]}
+                >
+                  <Text style={[styles.languageButtonText, expandedLanguage === 'spanish' && styles.expandedLanguageButtonText]}>Spanish Words</Text>
+                  <Text style={styles.expandIcon}>{expandedLanguage === 'spanish' ? '▼' : '▶'}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {expandedLanguage === 'spanish' && (
                 <View style={styles.expandedContent}>
                   {renderSearchBar()}
                   {renderCategoryTabs()}
@@ -942,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   section: {
     padding: theme.spacing.md,
-    paddingTop: 0,
+    paddingTop: theme.spacing.md,
   },
   sectionTitle: {
     fontSize: theme.fontSizes.xl,
@@ -1389,7 +1468,7 @@ const styles = StyleSheet.create({
   },
   combinedLogoTitle: {
     width: '100%',
-    height: 270,
+    height: 189,
     alignSelf: 'center',
     marginBottom: -20,
   },
@@ -1421,6 +1500,53 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: theme.fontSizes.md,
     fontWeight: '600',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
+    gap: theme.spacing.xs,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  activeFilterButton: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  filterButtonText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  activeFilterButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  globalFilterContainer: {
+    margin: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    ...shadows.md,
+  },
+  globalFilterTitle: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
   },
 });
 

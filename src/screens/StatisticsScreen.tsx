@@ -42,6 +42,7 @@ const StatisticsScreen: React.FC = () => {
   const [stats, setStats] = useState<{
     english: LanguageStats;
     portuguese: LanguageStats;
+    spanish: LanguageStats;
   } | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -66,7 +67,7 @@ const StatisticsScreen: React.FC = () => {
     ];
 
     return milestoneTargets.map(target => {
-      const totalWords = stats ? stats.english.speaking + stats.portuguese.speaking : 0;
+      const totalWords = stats ? stats.english.speaking + stats.portuguese.speaking + stats.spanish.speaking : 0;
       return {
         ...target,
         achieved: currentAge >= target.age && totalWords >= target.words,
@@ -86,10 +87,12 @@ const StatisticsScreen: React.FC = () => {
 
     const englishStats = calculateLanguageStats(child, 'english');
     const portugueseStats = calculateLanguageStats(child, 'portuguese');
+    const spanishStats = calculateLanguageStats(child, 'spanish');
 
     setStats({
       english: englishStats,
       portuguese: portugueseStats,
+      spanish: spanishStats,
     });
 
     // Calculate milestones after stats are available
@@ -99,7 +102,7 @@ const StatisticsScreen: React.FC = () => {
     }, 100);
   };
 
-  const calculateLanguageStats = (child: Child, language: 'english' | 'portuguese'): LanguageStats => {
+  const calculateLanguageStats = (child: Child, language: 'english' | 'portuguese' | 'spanish'): LanguageStats => {
     const categories = child.categories[language] || {};
     const categoryStats: CategoryStats[] = [];
 
@@ -233,9 +236,9 @@ const StatisticsScreen: React.FC = () => {
     );
   }
 
-  const totalUnderstanding = stats.english.understanding + stats.portuguese.understanding;
-  const totalSpeaking = stats.english.speaking + stats.portuguese.speaking;
-  const totalWords = stats.english.total + stats.portuguese.total;
+  const totalUnderstanding = stats.english.understanding + stats.portuguese.understanding + stats.spanish.understanding;
+  const totalSpeaking = stats.english.speaking + stats.portuguese.speaking + stats.spanish.speaking;
+  const totalWords = stats.english.total + stats.portuguese.total + stats.spanish.total;
 
   return (
     <ScrollView style={styles.container}>
@@ -326,6 +329,7 @@ const StatisticsScreen: React.FC = () => {
 
       {renderLanguageCard(stats.english)}
       {renderLanguageCard(stats.portuguese)}
+      {renderLanguageCard(stats.spanish)}
     </ScrollView>
   );
 };

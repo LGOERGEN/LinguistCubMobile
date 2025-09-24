@@ -14,6 +14,7 @@ export const theme: Theme = {
     error: '#FF7A85',
     english: '#9eb7dd',
     portuguese: '#e7984d',
+    spanish: '#b19dd9',
   },
   spacing: {
     xs: 4,

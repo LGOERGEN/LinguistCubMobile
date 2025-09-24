@@ -1,31 +1,64 @@
 {
   "expo": {
-    "name": "LinguistCubMobile",
-    "slug": "LinguistCubMobile",
+    "name": "Linguist Cub",
+    "slug": "linguist-cub",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "description": "Track your child's language development in English and Portuguese. Monitor vocabulary growth, understanding, and speaking progress across different categories.",
+    "primaryColor": "#4A90E2",
+    "privacy": "unlisted",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.LinguistCubMobile"
+      "bundleIdentifier": "com.linguistcub.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "Linguist Cub",
+        "NSCameraUsageDescription": "This app uses the camera to take photos for word learning activities.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record pronunciation practice.",
+        "NSPhotoLibraryUsageDescription": "This app accesses photos to help with word learning activities."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.linguistcub.mobile",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Linguist Cub",
+      "shortName": "Linguist Cub",
+      "lang": "en",
+      "scope": "/",
+      "themeColor": "#4A90E2"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "linguist-cub-mobile"
+      }
     }
   }
 }

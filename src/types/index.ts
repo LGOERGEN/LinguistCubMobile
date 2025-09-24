@@ -9,7 +9,7 @@ export interface Word {
 
 export interface Category {
   title: string;
-  language: 'english' | 'portuguese';
+  language: 'english' | 'portuguese' | 'spanish';
   words: Word[];
 }
 
@@ -20,13 +20,14 @@ export interface CategoryMap {
 export interface LanguageData {
   english: CategoryMap;
   portuguese: CategoryMap;
+  spanish: CategoryMap;
 }
 
 export interface Child {
   id: string;
   name: string;
   birthDate: string | null;
-  selectedLanguages: ('english' | 'portuguese')[];
+  selectedLanguages: ('english' | 'portuguese' | 'spanish')[];
   categories: LanguageData;
   createdAt: string;
   lastModified: string;
@@ -43,15 +44,15 @@ export interface AppData {
 export type RootStackParamList = {
   Home: undefined;
   ChildProfile: { childId: string };
-  Categories: { language: 'english' | 'portuguese' };
+  Categories: { language: 'english' | 'portuguese' | 'spanish' };
   CategoryDetail: {
-    language: 'english' | 'portuguese';
+    language: 'english' | 'portuguese' | 'spanish';
     categoryKey: string;
   };
   Statistics: undefined;
   Settings: undefined;
   AddWord: {
-    language: 'english' | 'portuguese';
+    language: 'english' | 'portuguese' | 'spanish';
     categoryKey: string;
   };
 };
@@ -63,8 +64,10 @@ export interface Statistics {
   totalUnderstanding: number;
   englishWords: number;
   portugueseWords: number;
+  spanishWords: number;
   englishPercentage: number;
   portuguesePercentage: number;
+  spanishPercentage: number;
   totalWords: number;
   categoryBreakdown: {
     [categoryKey: string]: {

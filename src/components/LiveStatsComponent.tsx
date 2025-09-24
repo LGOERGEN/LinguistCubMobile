@@ -7,7 +7,7 @@ import { dataService } from '../services/dataService';
 
 interface LiveStatsComponentProps {
   child: Child;
-  language: 'english' | 'portuguese';
+  language: 'english' | 'portuguese' | 'spanish';
   selectedCategory?: string;
 }
 
@@ -16,7 +16,8 @@ interface WordStats {
   spoken: number;
   englishRatio: number;
   portugueseRatio: number;
-  ageChartData: { age: number; english: number; portuguese: number; total: number }[];
+  spanishRatio: number;
+  ageChartData: { age: number; english: number; portuguese: number; spanish: number; total: number }[];
 }
 
 interface LanguageStats {
@@ -29,7 +30,7 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
   language,
   selectedCategory,
 }) => {
-  const calculateLanguageStats = (lang: 'english' | 'portuguese'): LanguageStats => {
+  const calculateLanguageStats = (lang: 'english' | 'portuguese' | 'spanish'): LanguageStats => {
     const categories = child.categories[lang];
     let allWords: any[] = [];
 
@@ -46,50 +47,65 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
   const calculateStats = (): WordStats => {
     const englishStats = calculateLanguageStats('english');
     const portugueseStats = calculateLanguageStats('portuguese');
-    const totalSpoken = englishStats.spoken + portugueseStats.spoken;
+    const spanishStats = calculateLanguageStats('spanish');
+    const totalSpoken = englishStats.spoken + portugueseStats.spoken + spanishStats.spoken;
 
     // Calculate language ratios
-    const englishRatio = totalSpoken > 0 ? Math.round((englishStats.spoken / totalSpoken) * 100) : 50;
-    const portugueseRatio = totalSpoken > 0 ? Math.round((portugueseStats.spoken / totalSpoken) * 100) : 50;
+    const englishRatio = totalSpoken > 0 ? Math.round((englishStats.spoken / totalSpoken) * 100) : 33;
+    const portugueseRatio = totalSpoken > 0 ? Math.round((portugueseStats.spoken / totalSpoken) * 100) : 33;
+    const spanishRatio = totalSpoken > 0 ? Math.round((spanishStats.spoken / totalSpoken) * 100) : 34;
 
     // Calculate age chart data with stacked bars
-    const ageGroups: { [key: number]: { english: number; portuguese: number } } = {};
+    const ageGroups: { [key: number]: { english: number; portuguese: number; spanish: number } } = {};
 
-    // Process both languages
-    ['english', 'portuguese'].forEach(lang => {
-      const categories = child.categories[lang as 'english' | 'portuguese'];
-      Object.values(categories).forEach(category => {
-        category.words.forEach(word => {
-          if (word.speaking && word.firstSpokenAge !== null) {
-            const age = word.firstSpokenAge;
-            if (!ageGroups[age]) {
-              ageGroups[age] = { english: 0, portuguese: 0 };
+    // Process all three languages
+    ['english', 'portuguese', 'spanish'].forEach(lang => {
+      const categories = child.categories[lang as 'english' | 'portuguese' | 'spanish'];
+      if (categories) {
+        Object.values(categories).forEach(category => {
+          category.words.forEach(word => {
+            if (word.speaking && word.firstSpokenAge !== null) {
+              const age = word.firstSpokenAge;
+              if (!ageGroups[age]) {
+                ageGroups[age] = { english: 0, portuguese: 0, spanish: 0 };
+              }
+              ageGroups[age][lang as 'english' | 'portuguese' | 'spanish']++;
             }
-            ageGroups[age][lang as 'english' | 'portuguese']++;
-          }
+          });
         });
-      });
+      }
     });
 
-    // Convert to stacked chart data
-    const ageChartData = Object.keys(ageGroups)
-      .map(ageStr => {
-        const age = parseInt(ageStr);
-        const group = ageGroups[age];
-        return {
-          age,
-          english: group.english,
-          portuguese: group.portuguese,
-          total: group.english + group.portuguese
-        };
-      })
-      .sort((a, b) => a.age - b.age);
+    // Convert to cumulative stacked chart data
+    const sortedAges = Object.keys(ageGroups)
+      .map(ageStr => parseInt(ageStr))
+      .sort((a, b) => a - b);
+
+    let cumulativeEnglish = 0;
+    let cumulativePortuguese = 0;
+    let cumulativeSpanish = 0;
+
+    const ageChartData = sortedAges.map(age => {
+      const group = ageGroups[age];
+      cumulativeEnglish += group.english;
+      cumulativePortuguese += group.portuguese;
+      cumulativeSpanish += group.spanish;
+
+      return {
+        age,
+        english: cumulativeEnglish,
+        portuguese: cumulativePortuguese,
+        spanish: cumulativeSpanish,
+        total: cumulativeEnglish + cumulativePortuguese + cumulativeSpanish
+      };
+    });
 
     return {
-      understood: englishStats.understood + portugueseStats.understood,
+      understood: englishStats.understood + portugueseStats.understood + spanishStats.understood,
       spoken: totalSpoken,
       englishRatio,
       portugueseRatio,
+      spanishRatio,
       ageChartData,
     };
   };
@@ -104,24 +120,45 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
   );
 
   const renderLanguageRatio = () => {
-    if (!child.selectedLanguages.includes('english') || !child.selectedLanguages.includes('portuguese')) {
+    const selectedLanguages = child.selectedLanguages;
+    if (selectedLanguages.length < 2) {
       return null;
     }
+
+    const hasSpokenWords = stats.spoken > 0;
 
     return (
       <View style={styles.ratioContainer}>
         <Text style={styles.ratioTitle}>Language Distribution (Spoken Words)</Text>
         <View style={styles.ratioBar}>
-          <View style={[styles.ratioSegment, { width: `${stats.englishRatio}%`, backgroundColor: theme.colors.english }]}>
-            <Text style={styles.ratioText}>{stats.englishRatio}%</Text>
-          </View>
-          <View style={[styles.ratioSegment, { width: `${stats.portugueseRatio}%`, backgroundColor: theme.colors.portuguese }]}>
-            <Text style={styles.ratioText}>{stats.portugueseRatio}%</Text>
-          </View>
+          {hasSpokenWords ? (
+            <>
+              {selectedLanguages.includes('english') && (
+                <View style={[styles.ratioSegment, { width: `${stats.englishRatio}%`, backgroundColor: theme.colors.english }]}>
+                  <Text style={styles.ratioText}>{stats.englishRatio}%</Text>
+                </View>
+              )}
+              {selectedLanguages.includes('portuguese') && (
+                <View style={[styles.ratioSegment, { width: `${stats.portugueseRatio}%`, backgroundColor: theme.colors.portuguese }]}>
+                  <Text style={styles.ratioText}>{stats.portugueseRatio}%</Text>
+                </View>
+              )}
+              {selectedLanguages.includes('spanish') && (
+                <View style={[styles.ratioSegment, { width: `${stats.spanishRatio}%`, backgroundColor: theme.colors.spanish }]}>
+                  <Text style={styles.ratioText}>{stats.spanishRatio}%</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyRatioBar}>
+              <Text style={styles.emptyRatioText}>No words spoken yet</Text>
+            </View>
+          )}
         </View>
         <View style={styles.ratioLabels}>
-          <Text style={styles.ratioLabel}>English</Text>
-          <Text style={styles.ratioLabel}>Portuguese</Text>
+          {selectedLanguages.includes('english') && <Text style={styles.ratioLabel}>English</Text>}
+          {selectedLanguages.includes('portuguese') && <Text style={styles.ratioLabel}>Portuguese</Text>}
+          {selectedLanguages.includes('spanish') && <Text style={styles.ratioLabel}>Spanish</Text>}
         </View>
       </View>
     );
@@ -131,7 +168,7 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
     if (stats.ageChartData.length === 0) {
       return (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Words Spoken by Age</Text>
+          <Text style={styles.chartTitle}>Cumulative Words Spoken by Age</Text>
           <Text style={styles.noDataText}>No spoken words recorded yet</Text>
         </View>
       );
@@ -144,25 +181,39 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
 
     return (
       <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Words Spoken by Age</Text>
+        <Text style={styles.chartTitle}>Cumulative Words Spoken by Age</Text>
         <View style={styles.chart}>
           {stats.ageChartData.map((dataPoint, index) => {
-            const englishHeight = (dataPoint.english / maxCount) * maxHeight;
-            const portugueseHeight = (dataPoint.portuguese / maxCount) * maxHeight;
+            const totalHeight = (dataPoint.total / maxCount) * maxHeight;
+
+            // Calculate proportional heights for stacking
+            const englishPortion = dataPoint.total > 0 ? dataPoint.english / dataPoint.total : 0;
+            const portuguesePortion = dataPoint.total > 0 ? dataPoint.portuguese / dataPoint.total : 0;
+            const spanishPortion = dataPoint.total > 0 ? dataPoint.spanish / dataPoint.total : 0;
+
+            const englishHeight = totalHeight * englishPortion;
+            const portugueseHeight = totalHeight * portuguesePortion;
+            const spanishHeight = totalHeight * spanishPortion;
 
             return (
               <View key={`${dataPoint.age}-${index}`} style={styles.chartBar}>
-                <View style={styles.stackedBar}>
+                <View style={[styles.stackedBar, { height: totalHeight }]}>
+                  {dataPoint.english > 0 && (
+                    <View style={[styles.barSegment, {
+                      height: englishHeight,
+                      backgroundColor: theme.colors.english
+                    }]} />
+                  )}
                   {dataPoint.portuguese > 0 && (
                     <View style={[styles.barSegment, {
                       height: portugueseHeight,
                       backgroundColor: theme.colors.portuguese
                     }]} />
                   )}
-                  {dataPoint.english > 0 && (
+                  {dataPoint.spanish > 0 && (
                     <View style={[styles.barSegment, {
-                      height: englishHeight,
-                      backgroundColor: theme.colors.english
+                      height: spanishHeight,
+                      backgroundColor: theme.colors.spanish
                     }]} />
                   )}
                 </View>
@@ -173,24 +224,35 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
           })}
         </View>
         <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: theme.colors.english }]} />
-            <Text style={styles.legendText}>English</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: theme.colors.portuguese }]} />
-            <Text style={styles.legendText}>Portuguese</Text>
-          </View>
+          {child.selectedLanguages.includes('english') && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: theme.colors.english }]} />
+              <Text style={styles.legendText}>English</Text>
+            </View>
+          )}
+          {child.selectedLanguages.includes('portuguese') && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: theme.colors.portuguese }]} />
+              <Text style={styles.legendText}>Portuguese</Text>
+            </View>
+          )}
+          {child.selectedLanguages.includes('spanish') && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: theme.colors.spanish }]} />
+              <Text style={styles.legendText}>Spanish</Text>
+            </View>
+          )}
         </View>
       </View>
     );
   };
 
   const getDisplayTitle = () => {
-    if (child.selectedLanguages.includes('english') && child.selectedLanguages.includes('portuguese')) {
+    if (child.selectedLanguages.length > 1) {
       return 'Overall Progress';
     }
-    return language === 'english' ? 'English Progress' : 'Portuguese Progress';
+    return language === 'english' ? 'English Progress' :
+           language === 'portuguese' ? 'Portuguese Progress' : 'Spanish Progress';
   };
 
   return (
@@ -372,6 +434,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     padding: theme.spacing.lg,
+  },
+  emptyRatioBar: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs,
+  },
+  emptyRatioText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
 

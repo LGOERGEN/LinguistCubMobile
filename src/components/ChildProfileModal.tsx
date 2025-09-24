@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { Child } from '../types';
 interface ChildProfileModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (name: string, birthDate: string | null, languages: ('english' | 'portuguese')[]) => void;
+  onSave: (name: string, birthDate: string | null, languages: ('english' | 'portuguese' | 'spanish')[]) => void;
   onDelete?: () => void;
   child?: Child | null;
   mode: 'create' | 'edit';
@@ -37,22 +37,36 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
     child?.birthDate ? new Date(child.birthDate) : null
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedLanguages, setSelectedLanguages] = useState<('english' | 'portuguese')[]>(
+  const [selectedLanguages, setSelectedLanguages] = useState<('english' | 'portuguese' | 'spanish')[]>(
     child?.selectedLanguages || ['english', 'portuguese']
   );
 
+  // Update state when child prop changes (for edit mode)
+  useEffect(() => {
+    if (visible) {
+      setName(child?.name || '');
+      setBirthDate(child?.birthDate ? new Date(child.birthDate) : null);
+      setSelectedLanguages(child?.selectedLanguages || ['english', 'portuguese']);
+    }
+  }, [visible, child]);
+
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Invalid Name', 'Please enter a valid name');
+      Alert.alert('Required Field Missing', 'Please enter a child name');
+      return;
+    }
+
+    if (!birthDate) {
+      Alert.alert('Required Field Missing', 'Please select a birth date');
       return;
     }
 
     if (selectedLanguages.length === 0) {
-      Alert.alert('Select Languages', 'Please select at least one language');
+      Alert.alert('Required Field Missing', 'Please select at least one language to track');
       return;
     }
 
-    const birthDateString = birthDate ? birthDate.toISOString() : null;
+    const birthDateString = birthDate.toISOString();
     onSave(name.trim(), birthDateString, selectedLanguages);
     handleClose();
   };
@@ -71,7 +85,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
     }
   };
 
-  const toggleLanguage = (language: 'english' | 'portuguese') => {
+  const toggleLanguage = (language: 'english' | 'portuguese' | 'spanish') => {
     setSelectedLanguages(prev => {
       if (prev.includes(language)) {
         return prev.filter(lang => lang !== language);
@@ -135,7 +149,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.label}>Birth Date</Text>
+              <Text style={styles.label}>Birth Date *</Text>
               <TouchableOpacity
                 style={styles.dateButton}
                 onPress={() => setShowDatePicker(true)}
@@ -143,7 +157,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                 <Text style={styles.dateButtonText}>
                   {formatDate(birthDate)}{calculateAge(birthDate)}
                 </Text>
-                <Text style={styles.dateButtonIcon}>Calendar</Text>
+                <Text style={styles.dateButtonIcon}>📅</Text>
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -158,41 +172,57 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
               )}
             </View>
 
-            <View style={styles.section}>
+            <View style={[styles.section, styles.languageSection]}>
               <Text style={styles.label}>Languages *</Text>
-              <Text style={styles.sublabel}>Select which languages to track</Text>
+              <View style={styles.languagesGrid}>
+                <TouchableOpacity
+                  style={[
+                    styles.languageButton,
+                    selectedLanguages.includes('english') && styles.selectedLanguage
+                  ]}
+                  onPress={() => toggleLanguage('english')}
+                >
+                  <Text style={styles.languageEmoji}>🇬🇧</Text>
+                  <Text style={[
+                    styles.languageText,
+                    selectedLanguages.includes('english') && styles.selectedLanguageText
+                  ]}>
+                    English
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.languageButton,
-                  selectedLanguages.includes('english') && styles.selectedLanguage
-                ]}
-                onPress={() => toggleLanguage('english')}
-              >
-                <Text style={styles.languageEmoji}>🇬🇧</Text>
-                <Text style={[
-                  styles.languageText,
-                  selectedLanguages.includes('english') && styles.selectedLanguageText
-                ]}>
-                  English
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.languageButton,
+                    selectedLanguages.includes('portuguese') && styles.selectedLanguage
+                  ]}
+                  onPress={() => toggleLanguage('portuguese')}
+                >
+                  <Text style={styles.languageEmoji}>🇧🇷</Text>
+                  <Text style={[
+                    styles.languageText,
+                    selectedLanguages.includes('portuguese') && styles.selectedLanguageText
+                  ]}>
+                    Portuguese
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.languageButton,
-                  selectedLanguages.includes('portuguese') && styles.selectedLanguage
-                ]}
-                onPress={() => toggleLanguage('portuguese')}
-              >
-                <Text style={styles.languageEmoji}>🇧🇷</Text>
-                <Text style={[
-                  styles.languageText,
-                  selectedLanguages.includes('portuguese') && styles.selectedLanguageText
-                ]}>
-                  Portuguese
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.languageButton,
+                    selectedLanguages.includes('spanish') && styles.selectedLanguage
+                  ]}
+                  onPress={() => toggleLanguage('spanish')}
+                >
+                  <Text style={styles.languageEmoji}>🇪🇸</Text>
+                  <Text style={[
+                    styles.languageText,
+                    selectedLanguages.includes('spanish') && styles.selectedLanguageText
+                  ]}>
+                    Spanish
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
 
@@ -225,7 +255,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                   );
                 }}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <Text style={styles.deleteButtonText}>×</Text>
               </TouchableOpacity>
             )}
 
@@ -234,7 +264,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
               onPress={handleSave}
             >
               <Text style={styles.saveButtonText}>
-                {mode === 'create' ? 'Add Child' : 'Save Changes'}
+                {mode === 'create' ? 'Add Child' : '✓'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -285,16 +315,16 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
   },
   section: {
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   label: {
     fontSize: theme.fontSizes.md,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   sublabel: {
     fontSize: theme.fontSizes.sm,
@@ -330,8 +360,8 @@ const styles = StyleSheet.create({
   languageButton: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: 'row',
@@ -390,6 +420,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: theme.fontSizes.md,
     fontWeight: '600',
+  },
+  languageSection: {
+    marginBottom: theme.spacing.xs,
   },
 });
 

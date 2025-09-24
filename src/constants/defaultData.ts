@@ -415,7 +415,199 @@ export const DEFAULT_PORTUGUESE_CATEGORIES = {
   }
 };
 
+export const DEFAULT_SPANISH_CATEGORIES = {
+  family: {
+    title: 'Familia',
+    language: 'spanish' as const,
+    words: [
+      { word: 'mamá', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'papá', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'bebé', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'hermano', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'hermana', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'abuela', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'abuelo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'tía', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'tío', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'primo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'prima', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  food: {
+    title: 'Comida & Bebida',
+    language: 'spanish' as const,
+    words: [
+      { word: 'leche', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'agua', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'banana', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'manzana', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pan', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'galleta', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'jugo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'yogur', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'queso', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pollo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pasta', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'arroz', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'huevo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cereal', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'naranja', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'uvas', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'fresa', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'zanahoria', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'guisantes', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'patata', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'terminado', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'más', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'rico', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  actions: {
+    title: 'Acciones & Verbos',
+    language: 'spanish' as const,
+    words: [
+      { word: 'ir', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'venir', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'parar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'sentar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'levantar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'caminar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'correr', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'saltar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'jugar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'dormir', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'comer', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'beber', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'lavar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cepillar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'leer', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cantar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'bailar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'ayudar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'dar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'tomar', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'abrir', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cerrar', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  body: {
+    title: 'Partes del Cuerpo',
+    language: 'spanish' as const,
+    words: [
+      { word: 'cabeza', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pelo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'ojos', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'nariz', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'boca', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'orejas', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'dientes', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'manos', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'dedos', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'brazos', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'piernas', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pies', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'dedos de los pies', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'barriga', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'espalda', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'rodilla', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  toys: {
+    title: 'Juguetes & Objetos',
+    language: 'spanish' as const,
+    words: [
+      { word: 'pelota', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'libro', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'coche', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'muñeca', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'osito', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'bloques', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'rompecabezas', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'tren', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'teléfono', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'llaves', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'bolsa', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'sombrero', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'zapatos', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'calcetines', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'manta', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'almohada', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'vaso', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'plato', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cuchara', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'tenedor', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  colors: {
+    title: 'Colores & Formas',
+    language: 'spanish' as const,
+    words: [
+      { word: 'rojo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'azul', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'amarillo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'verde', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'naranja', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'morado', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'rosa', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'negro', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'blanco', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'marrón', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'círculo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cuadrado', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'triángulo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'grande', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pequeño', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  animals: {
+    title: 'Animales',
+    language: 'spanish' as const,
+    words: [
+      { word: 'perro', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'gato', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pájaro', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pez', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'vaca', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'cerdo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'oveja', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'caballo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pato', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'pollo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'elefante', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'león', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'oso', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'mono', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'conejo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'ratón', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  greetings: {
+    title: 'Saludos & Modales',
+    language: 'spanish' as const,
+    words: [
+      { word: 'hola', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'hi', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'adiós', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'por favor', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'gracias', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'perdón', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'sí', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'no', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'buenos días', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'buenas noches', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'te amo', understanding: false, speaking: false, firstSpokenAge: null },
+      { word: 'con permiso', understanding: false, speaking: false, firstSpokenAge: null }
+    ]
+  },
+  other: {
+    title: 'Otros',
+    language: 'spanish' as const,
+    words: []
+  }
+};
+
 export const getDefaultLanguageData = (): LanguageData => ({
   english: DEFAULT_ENGLISH_CATEGORIES,
-  portuguese: DEFAULT_PORTUGUESE_CATEGORIES
+  portuguese: DEFAULT_PORTUGUESE_CATEGORIES,
+  spanish: DEFAULT_SPANISH_CATEGORIES
 });
