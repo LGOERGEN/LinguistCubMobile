@@ -10,10 +10,14 @@ import {
   Linking,
   Switch,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
-import { theme, shadows } from '../constants/theme';
+import { theme, shadows, gradients } from '../constants/theme';
 import { dataService } from '../services/dataService';
+import { generateHTMLReport } from '../components/ReportGenerator';
 
 const SettingsScreen: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
@@ -46,6 +50,46 @@ const SettingsScreen: React.FC = () => {
     } catch (error) {
       console.error('Export error:', error);
       Alert.alert('Export Failed', 'Failed to export data. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportReport = async () => {
+    try {
+      setIsExporting(true);
+
+      const activeChild = dataService.getActiveChild();
+
+      if (!activeChild) {
+        Alert.alert('No Child Selected', 'Please select or create a child profile first.');
+        return;
+      }
+
+      // Generate HTML report
+      const htmlContent = generateHTMLReport(activeChild);
+
+      // Convert HTML to PDF
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+
+      // Share the PDF
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `${activeChild.name}'s Language Development Report`,
+          UTI: 'public.pdf',
+        });
+      } else {
+        Alert.alert('Sharing not available', 'PDF generated but sharing is not available on this device.');
+      }
+
+      Alert.alert('Export Successful', 'Language development report PDF has been generated and shared!');
+    } catch (error) {
+      console.error('Export report error:', error);
+      Alert.alert('Export Failed', 'Failed to generate PDF report. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -143,21 +187,29 @@ const SettingsScreen: React.FC = () => {
     icon: string
   ) => {
     return (
-      <View style={styles.preferenceItem}>
+      <LinearGradient
+        colors={value ? gradients.primaryCard : gradients.card}
+        style={styles.preferenceItem}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
         <View style={styles.preferenceContent}>
-          <Text style={styles.preferenceIcon}>{icon}</Text>
+          <View style={styles.iconContainer}>
+            <Text style={styles.preferenceIcon}>{icon}</Text>
+          </View>
           <View style={styles.preferenceTextContainer}>
-            <Text style={styles.preferenceTitle}>{title}</Text>
-            <Text style={styles.preferenceDescription}>{description}</Text>
+            <Text style={[styles.preferenceTitle, value && styles.activePreferenceTitle]}>{title}</Text>
+            <Text style={[styles.preferenceDescription, value && styles.activePreferenceDescription]}>{description}</Text>
           </View>
         </View>
         <Switch
           value={value}
           onValueChange={onToggle}
-          trackColor={{ false: '#767577', true: theme.colors.primary }}
+          trackColor={{ false: 'rgba(96, 125, 139, 0.3)', true: theme.colors.secondary }}
           thumbColor={value ? '#ffffff' : '#f4f3f4'}
+          ios_backgroundColor="rgba(96, 125, 139, 0.3)"
         />
-      </View>
+      </LinearGradient>
     );
   };
 
@@ -170,35 +222,60 @@ const SettingsScreen: React.FC = () => {
     variant?: 'default' | 'danger'
   ) => {
     const isDisabled = loading;
-    const buttonStyle = variant === 'danger' ? styles.dangerButton : styles.settingButton;
-    const textStyle = variant === 'danger' ? styles.dangerButtonText : styles.settingButtonText;
+    const gradientColors = variant === 'danger' ?
+      ['rgba(255, 122, 133, 0.1)', 'rgba(255, 122, 133, 0.05)'] :
+      gradients.card;
 
     return (
       <TouchableOpacity
-        style={[buttonStyle, isDisabled && styles.disabledButton]}
         onPress={onPress}
         disabled={isDisabled}
+        style={[isDisabled && styles.disabledButton]}
       >
-        <View style={styles.settingContent}>
-          <Text style={styles.settingIcon}>{icon}</Text>
-          <View style={styles.settingTextContainer}>
-            <Text style={[styles.settingTitle, variant === 'danger' && styles.dangerText]}>
-              {title}
-            </Text>
-            <Text style={styles.settingDescription}>{description}</Text>
+        <LinearGradient
+          colors={gradientColors}
+          style={[styles.settingButton, variant === 'danger' && styles.dangerButton]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.settingContent}>
+            <View style={[styles.iconContainer, variant === 'danger' && styles.dangerIconContainer]}>
+              <Text style={styles.settingIcon}>{icon}</Text>
+            </View>
+            <View style={styles.settingTextContainer}>
+              <Text style={[styles.settingTitle, variant === 'danger' && styles.dangerText]}>
+                {title}
+              </Text>
+              <Text style={[styles.settingDescription, variant === 'danger' && styles.dangerDescription]}>{description}</Text>
+            </View>
+            {loading && (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>•••</Text>
+              </View>
+            )}
           </View>
-        </View>
-        {loading && <Text style={styles.loadingText}>Loading...</Text>}
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Manage your app preferences and data</Text>
-      </View>
+    <LinearGradient
+      colors={gradients.background}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <LinearGradient
+          colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.8)']}
+          style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Manage your app preferences and data</Text>
+        </LinearGradient>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data Management</Text>
@@ -268,42 +345,54 @@ const SettingsScreen: React.FC = () => {
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
 
-        <View style={styles.aboutCard}>
-          <Text style={styles.appName}>Linguist Cub</Text>
-          <Text style={styles.appVersion}>Version 1.0.0</Text>
-          <Text style={styles.appDescription}>
-            Track your child's language development in English and Portuguese.
-            Monitor vocabulary growth, understanding, and speaking progress across different categories.
+          <LinearGradient
+            colors={gradients.primaryCard}
+            style={styles.aboutCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.appName}>LINGUIST CUB</Text>
+            <Text style={styles.appVersion}>Version 1.0.0</Text>
+            <Text style={styles.appDescription}>
+              Track your child's language development in multiple languages.
+              Monitor vocabulary growth, understanding, and speaking progress across different categories.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Made with love for language learning families
           </Text>
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Made with love for language learning families
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   header: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    margin: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    ...shadows.md,
   },
   title: {
-    fontSize: theme.fontSizes.xl,
+    fontSize: theme.fontSizes.xxl,
     fontWeight: 'bold',
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
+    letterSpacing: 1,
   },
   subtitle: {
     fontSize: theme.fontSizes.md,
@@ -320,20 +409,14 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   settingButton: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    ...shadows.sm,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...shadows.md,
   },
   dangerButton: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: theme.colors.error,
-    ...shadows.sm,
   },
   disabledButton: {
     opacity: 0.6,
@@ -342,25 +425,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  settingIcon: {
-    fontSize: theme.fontSizes.xl,
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(158, 183, 221, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: theme.spacing.md,
-    width: 30,
-    textAlign: 'center',
+  },
+  dangerIconContainer: {
+    backgroundColor: 'rgba(255, 122, 133, 0.2)',
+  },
+  settingIcon: {
+    fontSize: theme.fontSizes.lg,
   },
   settingTextContainer: {
     flex: 1,
   },
   settingTitle: {
-    fontSize: theme.fontSizes.md,
+    fontSize: theme.fontSizes.lg,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 4,
   },
   settingDescription: {
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.md,
     color: theme.colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+  dangerDescription: {
+    color: 'rgba(255, 122, 133, 0.8)',
   },
   settingButtonText: {
     color: theme.colors.text,
@@ -371,32 +466,39 @@ const styles = StyleSheet.create({
   dangerText: {
     color: theme.colors.error,
   },
+  loadingContainer: {
+    marginLeft: 'auto',
+    paddingHorizontal: theme.spacing.md,
+  },
   loadingText: {
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.lg,
     color: theme.colors.primary,
-    fontStyle: 'italic',
+    fontWeight: 'bold',
   },
   aboutCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    ...shadows.sm,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.xl,
+    ...shadows.lg,
   },
   appName: {
-    fontSize: theme.fontSizes.lg,
+    fontSize: theme.fontSizes.xl,
     fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
+    color: '#ffffff',
+    marginBottom: theme.spacing.sm,
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   appVersion: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
+    fontSize: theme.fontSizes.md,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
   },
   appDescription: {
-    fontSize: theme.fontSizes.sm,
-    color: theme.colors.text,
-    lineHeight: 22,
+    fontSize: theme.fontSizes.md,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   footer: {
     padding: theme.spacing.xl,
@@ -413,11 +515,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    ...shadows.sm,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    ...shadows.md,
   },
   preferenceContent: {
     flexDirection: 'row',
@@ -426,22 +527,25 @@ const styles = StyleSheet.create({
   },
   preferenceIcon: {
     fontSize: theme.fontSizes.lg,
-    marginRight: theme.spacing.md,
-    width: 24,
-    textAlign: 'center',
   },
   preferenceTextContainer: {
     flex: 1,
   },
   preferenceTitle: {
-    fontSize: theme.fontSizes.md,
+    fontSize: theme.fontSizes.lg,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  activePreferenceTitle: {
+    color: '#ffffff',
   },
   preferenceDescription: {
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.md,
     color: theme.colors.textSecondary,
+  },
+  activePreferenceDescription: {
+    color: 'rgba(255, 255, 255, 0.8)',
   },
 });
 

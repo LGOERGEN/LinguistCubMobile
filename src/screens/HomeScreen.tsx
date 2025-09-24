@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,12 @@ import {
   TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { captureRef } from 'react-native-view-shot';
 
 import { RootStackParamList, Child, AppData } from '../types';
 import { dataService } from '../services/dataService';
@@ -22,6 +25,7 @@ import { theme, shadows, gradients } from '../constants/theme';
 import ChildProfileModal from '../components/ChildProfileModal';
 import LiveStatsComponent from '../components/LiveStatsComponent';
 import AddWordModal from '../components/AddWordModal';
+import { generateHTMLReport } from '../components/ReportGenerator';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -62,6 +66,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [wordFilter, setWordFilter] = useState<'all' | 'understood' | 'spoken'>('all');
   const [globalFilteredWords, setGlobalFilteredWords] = useState<(WordItem & { language: string })[]>([]);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showDropdownMenu, setShowDropdownMenu] = useState(false);
+  const [isGeneratingSocialPost, setIsGeneratingSocialPost] = useState(false);
+  const [showSocialBranding, setShowSocialBranding] = useState(false);
+  const liveStatsRef = useRef<View>(null);
 
   const loadData = async () => {
     try {
@@ -79,6 +88,109 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const handleExportReport = async () => {
+    try {
+      setIsExporting(true);
+
+      const activeChild = dataService.getActiveChild();
+      console.log('Active child:', activeChild ? activeChild.name : 'None');
+
+      if (!activeChild) {
+        Alert.alert('No Child Selected', 'Please select or create a child profile first.');
+        return;
+      }
+
+      console.log('Generating HTML report...');
+      // Generate HTML report
+      const htmlContent = generateHTMLReport(activeChild);
+      console.log('HTML content generated, length:', htmlContent.length);
+
+      console.log('Converting to PDF...');
+      // Convert HTML to PDF
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+      console.log('PDF created at:', uri);
+
+      console.log('Checking sharing availability...');
+      // Share the PDF
+      if (await Sharing.isAvailableAsync()) {
+        console.log('Sharing PDF...');
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `${activeChild.name}'s Language Development Report`,
+          UTI: 'public.pdf',
+        });
+        console.log('PDF shared successfully');
+      } else {
+        Alert.alert('Sharing not available', 'PDF generated but sharing is not available on this device.');
+        return;
+      }
+
+      Alert.alert('Export Successful', `${activeChild.name}'s language development report has been generated and is ready to share!`);
+    } catch (error) {
+      console.error('Export report error details:', error);
+      Alert.alert('Export Failed', `Failed to generate PDF report: ${error.message || 'Unknown error'}. Please try again.`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSocialMediaShare = async () => {
+    try {
+      setIsGeneratingSocialPost(true);
+
+      const activeChild = dataService.getActiveChild();
+      if (!activeChild) {
+        Alert.alert('No Child Selected', 'Please select or create a child profile first.');
+        return;
+      }
+
+      // Show social media branding elements temporarily
+      setShowSocialBranding(true);
+
+      // Wait a moment for the UI to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Capture screenshot of the Overall Progress section
+      if (!liveStatsRef.current) {
+        Alert.alert('Error', 'Unable to capture progress section. Please try again.');
+        setShowSocialBranding(false);
+        return;
+      }
+
+      const imageUri = await captureRef(liveStatsRef.current, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
+      });
+
+      // Hide social media branding elements
+      setShowSocialBranding(false);
+
+      // Share the image
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(imageUri, {
+          mimeType: 'image/png',
+          dialogTitle: `Share ${activeChild.name}'s Language Progress`,
+          UTI: 'public.png',
+        });
+      } else {
+        Alert.alert('Sharing not available', 'Image generated but sharing is not available on this device.');
+        return;
+      }
+
+      Alert.alert('Share Successful', `${activeChild.name}'s progress has been captured and is ready to share!`);
+    } catch (error) {
+      console.error('Social media share error:', error);
+      Alert.alert('Share Failed', `Failed to capture progress section: ${error.message || 'Unknown error'}. Please try again.`);
+      setShowSocialBranding(false);
+    } finally {
+      setIsGeneratingSocialPost(false);
+    }
   };
 
   useFocusEffect(
@@ -1497,6 +1609,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={() => setShowDropdownMenu(false)}
       >
         {/* Header with Logo and Title */}
         <View style={styles.header}>
@@ -1505,6 +1618,58 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             style={styles.combinedLogoTitle}
             resizeMode="contain"
           />
+
+          {/* Dropdown Menu */}
+          {activeChild && (
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setShowDropdownMenu(!showDropdownMenu)}
+              >
+                <Text style={styles.dropdownButtonIcon}>⋯</Text>
+              </TouchableOpacity>
+
+              {showDropdownMenu && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity
+                    style={styles.dropdownMenuItem}
+                    onPress={() => {
+                      setShowDropdownMenu(false);
+                      handleExportReport();
+                    }}
+                    disabled={isExporting}
+                  >
+                    <Text style={styles.dropdownMenuText}>
+                      {isExporting ? 'Generating Report...' : 'Share Report'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.dropdownMenuItem}
+                    onPress={() => {
+                      setShowDropdownMenu(false);
+                      handleSocialMediaShare();
+                    }}
+                    disabled={isGeneratingSocialPost}
+                  >
+                    <Text style={styles.dropdownMenuText}>
+                      {isGeneratingSocialPost ? 'Generating Post...' : 'Share on Social Media'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.dropdownMenuItem}
+                    onPress={() => {
+                      setShowDropdownMenu(false);
+                      navigation.navigate('Settings');
+                    }}
+                  >
+                    <Text style={styles.dropdownMenuText}>Settings</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Child Profiles Section */}
@@ -1527,7 +1692,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Statistics Section */}
       {activeChild && (
-        <LiveStatsComponent child={activeChild} language={expandedLanguage || 'english'} />
+        <View ref={liveStatsRef} collapsable={false} style={showSocialBranding ? styles.screenshotContainer : undefined}>
+          {showSocialBranding ? (
+            <LinearGradient
+              colors={gradients.background}
+              style={styles.screenshotBackground}
+              locations={[0, 0.6, 1]}
+            >
+              {/* Header with Logo and Branding for Social Media */}
+              <View style={styles.socialHeader}>
+                <Image
+                  source={require('../../Visuals_transparent/Linguist Cub.png')}
+                  style={styles.socialLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.socialTagline}>Track Your Baby's Language Journey</Text>
+              </View>
+
+              <LiveStatsComponent child={activeChild} language={expandedLanguage || 'english'} />
+
+              {/* Footer for Social Media */}
+              <View style={styles.socialFooter}>
+                <Text style={styles.socialAppStores}>Linguist Cub - Available on App Store & Google Play</Text>
+              </View>
+            </LinearGradient>
+          ) : (
+            <LiveStatsComponent child={activeChild} language={expandedLanguage || 'english'} />
+          )}
+        </View>
       )}
 
       {/* Global Search Bar */}
@@ -1625,17 +1817,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
-      {/* Settings Button */}
-      {activeChild && (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.textSecondary }]}
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Text style={styles.actionButtonText}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Welcome Message */}
       {children.length === 0 && (
@@ -2270,6 +2451,99 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: theme.fontSizes.xs,
     fontWeight: 'bold',
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 15,
+    zIndex: 1000,
+  },
+  dropdownButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  dropdownButtonIcon: {
+    fontSize: 20,
+    color: theme.colors.text,
+    fontWeight: 'bold',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 36,
+    right: 0,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    minWidth: 180,
+    ...shadows.lg,
+    paddingVertical: theme.spacing.sm,
+  },
+  dropdownMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+  },
+  dropdownMenuIcon: {
+    fontSize: 16,
+    marginRight: theme.spacing.sm,
+  },
+  dropdownMenuText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  screenshotContainer: {
+    // Container for the screenshot capture
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    marginVertical: theme.spacing.sm,
+  },
+  screenshotBackground: {
+    // Background gradient for the screenshot
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+  },
+  socialHeader: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+  },
+  socialLogo: {
+    width: 182, // 30% bigger than 140
+    height: 91,  // 30% bigger than 70
+    marginBottom: theme.spacing.xs,
+  },
+  socialTagline: {
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    fontFamily: 'System',
+  },
+  socialFooter: {
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+  },
+  socialAppStores: {
+    fontSize: theme.fontSizes.xs,
+    fontWeight: '500',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
