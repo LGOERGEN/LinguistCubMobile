@@ -93,6 +93,7 @@ export interface Theme {
     error: string;
     english: string;
     portuguese: string;
+    spanish: string;
   };
   spacing: {
     xs: number;

@@ -268,6 +268,23 @@ class DataService {
     }
   }
 
+  async removeLanguageData(childId: string, language: 'english' | 'portuguese' | 'spanish'): Promise<void> {
+    if (!this.data) throw new Error('Data not initialized');
+
+    const child = this.data.children[childId];
+    if (!child) throw new Error('Child not found');
+
+    // Remove the language data from child's categories
+    if (child.categories[language]) {
+      delete child.categories[language];
+    }
+
+    // Update the child's lastModified timestamp
+    child.lastModified = new Date().toISOString();
+
+    await this.saveData();
+  }
+
   async clearAllData(): Promise<void> {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);

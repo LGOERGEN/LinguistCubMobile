@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { theme, shadows } from '../constants/theme';
+import { ValidationUtils, VALIDATION_LIMITS } from '../constants/validation';
 
 interface AddWordModalProps {
   visible: boolean;
@@ -36,6 +37,7 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
   const [word, setWord] = useState(initialWord || '');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<'english' | 'portuguese' | 'spanish' | ''>('');
+  const [wordError, setWordError] = useState<string>('');
 
   // Get categories for the currently selected language
   const getDisplayCategories = () => {
@@ -73,17 +75,25 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
   }, [selectedLanguage]);
 
   const handleSave = () => {
-    if (!word.trim()) {
-      Alert.alert('Invalid Word', 'Please enter a word');
+    // Clear previous errors
+    setWordError('');
+
+    // Validate word
+    const sanitizedWord = ValidationUtils.sanitizeInput(word);
+    const wordValidation = ValidationUtils.validateWord(sanitizedWord);
+    if (!wordValidation.isValid) {
+      setWordError(wordValidation.error || '');
+      Alert.alert('Invalid Word', wordValidation.error);
       return;
     }
 
     // Check if word already exists (case insensitive)
     const wordExists = existingWords.some(
-      existingWord => existingWord.toLowerCase() === word.trim().toLowerCase()
+      existingWord => existingWord.toLowerCase() === sanitizedWord.toLowerCase()
     );
 
     if (wordExists) {
+      setWordError('This word already exists in the categories');
       Alert.alert('Word Already Exists', 'This word is already in the categories');
       return;
     }
@@ -99,7 +109,7 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
-    onSave(word.trim(), selectedCategory, selectedLanguage || undefined);
+    onSave(sanitizedWord, selectedCategory, selectedLanguage || undefined);
     handleClose();
   };
 
@@ -107,6 +117,7 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
     setWord(initialWord || '');
     setSelectedCategory('');
     setSelectedLanguage('');
+    setWordError('');
     onClose();
   };
 
@@ -130,15 +141,25 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.label}>Word *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, wordError ? styles.inputError : null]}
                 value={word}
-                onChangeText={setWord}
+                onChangeText={(text) => {
+                  setWord(text);
+                  setWordError(''); // Clear error as user types
+                }}
                 placeholder="Enter word"
                 placeholderTextColor={theme.colors.textSecondary}
                 autoFocus
                 autoCapitalize="none"
                 autoCorrect={false}
+                maxLength={VALIDATION_LIMITS.CUSTOM_WORD_MAX_LENGTH}
               />
+              <Text style={styles.characterCount}>
+                {word.length}/{VALIDATION_LIMITS.CUSTOM_WORD_MAX_LENGTH}
+              </Text>
+              {wordError ? (
+                <Text style={styles.errorText}>{wordError}</Text>
+              ) : null}
             </View>
 
             {languages && languages.length > 1 && (
@@ -355,6 +376,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: theme.fontSizes.md,
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
+  },
+  characterCount: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'right',
+    marginTop: theme.spacing.xs,
+  },
+  errorText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
   },
 });
 

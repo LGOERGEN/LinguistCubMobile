@@ -34,9 +34,11 @@ const LiveStatsComponent: React.FC<LiveStatsComponentProps> = ({
     const categories = child.categories[lang];
     let allWords: any[] = [];
 
-    Object.values(categories).forEach(category => {
-      allWords = allWords.concat(category.words);
-    });
+    if (categories) {
+      Object.values(categories).forEach(category => {
+        allWords = allWords.concat(category.words);
+      });
+    }
 
     return {
       understood: allWords.filter(word => word.understanding).length,

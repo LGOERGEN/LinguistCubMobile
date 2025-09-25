@@ -14,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { theme, shadows } from '../constants/theme';
 import { Child } from '../types';
+import { ValidationUtils, VALIDATION_LIMITS } from '../constants/validation';
 
 interface ChildProfileModalProps {
   visible: boolean;
@@ -22,6 +23,9 @@ interface ChildProfileModalProps {
   onDelete?: () => void;
   child?: Child | null;
   mode: 'create' | 'edit';
+  existingChildNames?: string[];
+  existingChildren?: Child[];
+  maxProfilesReached?: boolean;
 }
 
 const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
@@ -31,6 +35,9 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   onDelete,
   child,
   mode,
+  existingChildNames = [],
+  existingChildren = [],
+  maxProfilesReached = false,
 }) => {
   const [name, setName] = useState(child?.name || '');
   const [birthDate, setBirthDate] = useState<Date | null>(
@@ -40,6 +47,8 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   const [selectedLanguages, setSelectedLanguages] = useState<('english' | 'portuguese' | 'spanish')[]>(
     child?.selectedLanguages || ['english', 'portuguese']
   );
+  const [nameError, setNameError] = useState<string>('');
+  const [birthDateError, setBirthDateError] = useState<string>('');
 
   // Update state when child prop changes (for edit mode)
   useEffect(() => {
@@ -51,23 +60,56 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
   }, [visible, child]);
 
   const handleSave = () => {
-    if (!name.trim()) {
-      Alert.alert('Required Field Missing', 'Please enter a child name');
+    // Clear previous errors
+    setNameError('');
+    setBirthDateError('');
+
+    // Check if max profiles reached for create mode
+    if (mode === 'create' && maxProfilesReached) {
+      Alert.alert('Profile Limit Reached', 'You can create a maximum of 8 child profiles.');
       return;
     }
 
-    if (!birthDate) {
-      Alert.alert('Required Field Missing', 'Please select a birth date');
+    // Validate name
+    const sanitizedName = ValidationUtils.sanitizeInput(name);
+    const nameValidation = ValidationUtils.validateChildName(sanitizedName);
+    if (!nameValidation.isValid) {
+      setNameError(nameValidation.error || '');
+      Alert.alert('Invalid Name', nameValidation.error);
       return;
     }
 
+    // Check for duplicate names (skip if editing the same child)
+    const isDuplicate = existingChildren.some(existingChild =>
+      existingChild.id !== child?.id &&
+      existingChild.name.toLowerCase() === sanitizedName.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      const duplicateError = 'A child profile with this name already exists.';
+      setNameError(duplicateError);
+      Alert.alert('Duplicate Name', duplicateError);
+      return;
+    }
+
+    // Validate birth date (now optional)
+    if (birthDate) {
+      const birthDateValidation = ValidationUtils.validateBirthDate(birthDate.toISOString());
+      if (!birthDateValidation.isValid) {
+        setBirthDateError(birthDateValidation.error || '');
+        Alert.alert('Invalid Birth Date', birthDateValidation.error);
+        return;
+      }
+    }
+
+    // Validate language selection
     if (selectedLanguages.length === 0) {
-      Alert.alert('Required Field Missing', 'Please select at least one language to track');
+      Alert.alert('Language Required', 'Please select at least one language to track.');
       return;
     }
 
-    const birthDateString = birthDate.toISOString();
-    onSave(name.trim(), birthDateString, selectedLanguages);
+    const birthDateString = birthDate ? birthDate.toISOString() : null;
+    onSave(sanitizedName, birthDateString, selectedLanguages);
     handleClose();
   };
 
@@ -75,6 +117,8 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
     setName(child?.name || '');
     setBirthDate(child?.birthDate ? new Date(child.birthDate) : null);
     setSelectedLanguages(child?.selectedLanguages || ['english', 'portuguese']);
+    setNameError('');
+    setBirthDateError('');
     onClose();
   };
 
@@ -139,19 +183,29 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.label}>Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, nameError ? styles.inputError : null]}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(text) => {
+                  setName(text);
+                  setNameError(''); // Clear error as user types
+                }}
                 placeholder="Enter child's name"
                 placeholderTextColor={theme.colors.textSecondary}
                 autoFocus={mode === 'create'}
+                maxLength={VALIDATION_LIMITS.CHILD_NAME_MAX_LENGTH}
               />
+              <Text style={styles.characterCount}>
+                {name.length}/{VALIDATION_LIMITS.CHILD_NAME_MAX_LENGTH}
+              </Text>
+              {nameError ? (
+                <Text style={styles.errorText}>{nameError}</Text>
+              ) : null}
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.label}>Birth Date *</Text>
+              <Text style={styles.label}>Birth Date (Optional)</Text>
               <TouchableOpacity
-                style={styles.dateButton}
+                style={[styles.dateButton, birthDateError ? styles.inputError : null]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.dateButtonText}>
@@ -159,6 +213,9 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                 </Text>
                 <Text style={styles.dateButtonIcon}>📅</Text>
               </TouchableOpacity>
+              {birthDateError ? (
+                <Text style={styles.errorText}>{birthDateError}</Text>
+              ) : null}
 
               {showDatePicker && (
                 <DateTimePicker
@@ -167,7 +224,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
                   maximumDate={new Date()}
-                  minimumDate={new Date(1900, 0, 1)}
+                  minimumDate={new Date(1925, 0, 1)}
                 />
               )}
             </View>
@@ -340,6 +397,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  inputError: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
+  },
+  characterCount: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'right',
+    marginTop: theme.spacing.xs,
+  },
+  errorText: {
+    fontSize: theme.fontSizes.xs,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
+  },
   dateButton: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.md,
@@ -423,6 +495,10 @@ const styles = StyleSheet.create({
   },
   languageSection: {
     marginBottom: theme.spacing.xs,
+  },
+  languagesGrid: {
+    flexDirection: 'column',
+    gap: theme.spacing.sm,
   },
 });
 

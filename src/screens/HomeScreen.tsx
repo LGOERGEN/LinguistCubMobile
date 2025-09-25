@@ -22,6 +22,7 @@ import { captureRef } from 'react-native-view-shot';
 import { RootStackParamList, Child, AppData } from '../types';
 import { dataService } from '../services/dataService';
 import { theme, shadows, gradients } from '../constants/theme';
+import { VALIDATION_LIMITS } from '../constants/validation';
 import ChildProfileModal from '../components/ChildProfileModal';
 import LiveStatsComponent from '../components/LiveStatsComponent';
 import AddWordModal from '../components/AddWordModal';
@@ -222,6 +223,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           selectedLanguages: languages,
         });
 
+        // Remove language data for removed languages
+        if (removedLanguages.length > 0) {
+          for (const removedLang of removedLanguages) {
+            await dataService.removeLanguageData(editingChild.id, removedLang);
+          }
+        }
+
         // If languages were removed and we're currently viewing one of them, reset the view
         if (removedLanguages.includes(expandedLanguage as any)) {
           setExpandedLanguage(null);
@@ -381,6 +389,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadWordsForCategory = (categoryKey: string, language: 'english' | 'portuguese' | 'spanish', child: Child) => {
     const categoryData = child.categories[language];
+    if (!categoryData) return;
+
     let allWords: WordItem[] = [];
 
     if (categoryKey === 'all') {
@@ -705,10 +715,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         loadCategoriesForLanguage(expandedLanguage, true);
       }
 
-      // Clear the search query after adding
+      // Clear the search query and reset filter after adding
       setSearchQuery('');
       setIsSearching(false);
       setShowGlobalSearch(false);
+      setSelectedCategory('all');
     } catch (error) {
       Alert.alert('Error', 'Failed to add word');
     }
@@ -723,20 +734,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // If we have an expanded language, get words from that language only
     if (expandedLanguage) {
       const categoryData = activeChild.categories[expandedLanguage];
-      Object.values(categoryData).forEach(category => {
-        category.words.forEach(word => {
-          allWords.push(word.word);
-        });
-      });
-    } else {
-      // Otherwise, get words from all selected languages
-      activeChild.selectedLanguages.forEach(language => {
-        const categoryData = activeChild.categories[language];
+      if (categoryData) {
         Object.values(categoryData).forEach(category => {
           category.words.forEach(word => {
             allWords.push(word.word);
           });
         });
+      }
+    } else {
+      // Otherwise, get words from all selected languages
+      activeChild.selectedLanguages.forEach(language => {
+        const categoryData = activeChild.categories[language];
+        if (categoryData) {
+          Object.values(categoryData).forEach(category => {
+            category.words.forEach(word => {
+              allWords.push(word.word);
+            });
+          });
+        }
       });
     }
 
@@ -756,6 +771,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         ? 'english'
         : activeChild.selectedLanguages[0];
       const categoryData = activeChild.categories[preferredLanguage];
+      if (!categoryData) return [];
+
       return Object.keys(categoryData)
         .filter(key => key !== 'other')
         .map(key => ({
@@ -783,6 +800,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     const categoryData = activeChild.categories[expandedLanguage];
+    if (!categoryData) {
+      setSearchResults([]);
+      return;
+    }
+
     let results: WordItem[] = [];
 
     Object.values(categoryData).forEach(category => {
@@ -806,16 +828,39 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setIsSearching(false);
   };
 
-  const renderCategoryTabs = () => {
+  const renderCategoryTabs = (contextLanguage?: 'english' | 'portuguese' | 'spanish') => {
     const activeChild = dataService.getActiveChild();
-    const otherWordCount = activeChild && expandedLanguage
-      ? activeChild.categories[expandedLanguage].other?.words.length || 0
-      : 0;
+    if (!activeChild) return null;
+
+    // Determine which language context to use
+    const targetLanguage = contextLanguage || expandedLanguage;
+    if (!targetLanguage) return null;
+
+    // Get categories for the specific language context
+    const categoryData = activeChild.categories[targetLanguage];
+    if (!categoryData) return null;
+
+    const contextCategories = Object.keys(categoryData)
+      .filter(key => key !== 'other')
+      .map(key => ({
+        key,
+        title: categoryData[key].title,
+        wordCount: categoryData[key].words.length,
+        emoji: getCategoryEmoji(key),
+      }))
+      .concat([{
+        key: 'other',
+        title: categoryData.other ? categoryData.other.title : 'Other',
+        wordCount: categoryData.other ? categoryData.other.words.length : 0,
+        emoji: getCategoryEmoji('other'),
+      }]);
+
+    // Calculate total words for this language
+    const totalWords = Object.values(categoryData).reduce((sum, category) => sum + category.words.length, 0);
 
     const allTabsData = [
-      { key: 'all', title: 'All', wordCount: words.length, emoji: '' },
-      ...categories,
-      { key: 'other', title: categories.find(c => c.key === 'other')?.title || 'Other', wordCount: otherWordCount, emoji: '' }
+      { key: 'all', title: 'All', wordCount: totalWords, emoji: '' },
+      ...contextCategories
     ];
 
     return (
@@ -825,16 +870,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         style={styles.tabsContainer}
         contentContainerStyle={styles.tabsContent}
       >
-        {allTabsData.map(renderCategoryTab)}
+        {allTabsData.map((category) => renderCategoryTab(category, targetLanguage))}
       </ScrollView>
     );
   };
 
-  const renderCategoryTab = (category: CategoryInfo | { key: string; title: string; wordCount: number; emoji: string }) => {
+  const renderCategoryTab = (category: CategoryInfo | { key: string; title: string; wordCount: number; emoji: string }, language?: string) => {
     const isSelected = selectedCategory === category.key;
+    // Create unique key by combining category key with language to prevent duplicates
+    const uniqueKey = language ? `${language}-${category.key}` : category.key;
+
     return (
       <TouchableOpacity
-        key={category.key}
+        key={uniqueKey}
         style={[styles.categoryTab, isSelected && styles.selectedTab]}
         onPress={() => handleCategoryPress(category.key)}
       >
@@ -1026,11 +1074,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Get words from all selected languages
     activeChild.selectedLanguages.forEach(language => {
       const categoryData = activeChild.categories[language];
-      Object.values(categoryData).forEach(category => {
-        category.words.forEach(word => {
-          allWords.push({ ...word, language });
+      if (categoryData) {
+        Object.values(categoryData).forEach(category => {
+          category.words.forEach(word => {
+            allWords.push({ ...word, language });
+          });
         });
-      });
+      }
     });
 
     return allWords;
@@ -1083,6 +1133,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Get filtered words organized by category
     const getFilteredWordsByCategory = () => {
       const categoryData = activeChild.categories[language];
+      if (!categoryData) return [];
+
       let displayWords: WordItem[] = [];
 
       if (selectedCategory === 'all') {
@@ -1205,7 +1257,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {isExpanded && (
           <View style={styles.expandedContent}>
-            {renderCategoryTabs()}
+            <View style={styles.collapseButtonContainer}>
+              <TouchableOpacity
+                onPress={() => setExpandedLanguage(null)}
+                style={styles.collapseButton}
+              >
+                <Text style={styles.collapseButtonText}>✕ Collapse</Text>
+              </TouchableOpacity>
+            </View>
+            {renderCategoryTabs(language)}
             {renderWordsListForFilter(language)}
           </View>
         )}
@@ -1786,7 +1846,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'english' && (
                     <View style={styles.expandedContent}>
-                      {renderCategoryTabs()}
+                      <View style={styles.collapseButtonContainer}>
+                        <TouchableOpacity
+                          onPress={() => setExpandedLanguage(null)}
+                          style={styles.collapseButton}
+                        >
+                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {renderCategoryTabs('english')}
                       {renderWordsList()}
                     </View>
                   )}
@@ -1809,7 +1877,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'portuguese' && (
                     <View style={styles.expandedContent}>
-                      {renderCategoryTabs()}
+                      <View style={styles.collapseButtonContainer}>
+                        <TouchableOpacity
+                          onPress={() => setExpandedLanguage(null)}
+                          style={styles.collapseButton}
+                        >
+                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {renderCategoryTabs('portuguese')}
                       {renderWordsList()}
                     </View>
                   )}
@@ -1832,7 +1908,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'spanish' && (
                     <View style={styles.expandedContent}>
-                      {renderCategoryTabs()}
+                      <View style={styles.collapseButtonContainer}>
+                        <TouchableOpacity
+                          onPress={() => setExpandedLanguage(null)}
+                          style={styles.collapseButton}
+                        >
+                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {renderCategoryTabs('spanish')}
                       {renderWordsList()}
                     </View>
                   )}
@@ -1861,6 +1945,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         onDelete={editingChild ? handleDeleteChild : undefined}
         child={editingChild}
         mode={editingChild ? 'edit' : 'create'}
+        existingChildNames={children.map(child => child.name)}
+        existingChildren={children}
+        maxProfilesReached={children.length >= VALIDATION_LIMITS.MAX_CHILD_PROFILES}
       />
 
       <AddWordModal
@@ -2571,6 +2658,26 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+  },
+  collapseButtonContainer: {
+    alignItems: 'flex-end',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xs,
+  },
+  collapseButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(44, 62, 80, 0.2)',
+    ...shadows.sm,
+  },
+  collapseButtonText: {
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
 });
 
