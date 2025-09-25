@@ -211,13 +211,33 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   ) => {
     try {
       if (editingChild) {
+        // Check if any languages were removed
+        const removedLanguages = editingChild.selectedLanguages.filter(
+          lang => !languages.includes(lang)
+        );
+
         await dataService.updateChild(editingChild.id, {
           name,
           birthDate,
           selectedLanguages: languages,
         });
+
+        // If languages were removed and we're currently viewing one of them, reset the view
+        if (removedLanguages.includes(expandedLanguage as any)) {
+          setExpandedLanguage(null);
+          setSelectedCategory('all');
+          setWords([]);
+          setCategories([]);
+          setWordFilter('all');
+        }
       } else {
         await dataService.createChild(name, birthDate, languages);
+        // Reset UI state for new child
+        setExpandedLanguage(null);
+        setSelectedCategory('all');
+        setWords([]);
+        setCategories([]);
+        setWordFilter('all');
       }
       await loadData();
     } catch (error) {
@@ -243,6 +263,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       await dataService.setActiveChild(childId);
+      // Reset UI state when switching to different child
+      setExpandedLanguage(null);
+      setSelectedCategory('all');
+      setWords([]);
+      setCategories([]);
+      setWordFilter('all');
       await loadData();
     } catch (error) {
       Alert.alert('Error', 'Failed to select child');
@@ -1845,6 +1871,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         categories={getCategoriesForAddModal()}
         initialWord={searchQuery}
         languages={activeChild?.selectedLanguages}
+        allCategories={activeChild?.categories}
       />
       </ScrollView>
     </LinearGradient>

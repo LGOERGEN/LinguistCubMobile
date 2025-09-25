@@ -35,22 +35,13 @@
       "env": {
         "EXPO_PUBLIC_ENV": "production"
       }
-    },
-    "production-ios": {
-      "extends": "production",
-      "platform": "ios"
-    },
-    "production-android": {
-      "extends": "production",
-      "platform": "android"
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "lgoergen@gmail.com",
-        "ascAppId": "PLACEHOLDER_APP_ID",
-        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+        "appleId": "goergenluana@gmail.com",
+        "appleTeamId": "VBVT93SS3G"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",

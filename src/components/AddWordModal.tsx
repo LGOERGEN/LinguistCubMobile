@@ -20,6 +20,7 @@ interface AddWordModalProps {
   categories: { key: string; title: string }[];
   initialWord?: string;
   languages?: ('english' | 'portuguese' | 'spanish')[];
+  allCategories?: { [language: string]: { [key: string]: { title: string } } };
 }
 
 const AddWordModal: React.FC<AddWordModalProps> = ({
@@ -30,10 +31,34 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
   categories,
   initialWord,
   languages,
+  allCategories,
 }) => {
   const [word, setWord] = useState(initialWord || '');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<'english' | 'portuguese' | 'spanish' | ''>('');
+
+  // Get categories for the currently selected language
+  const getDisplayCategories = () => {
+    if (!allCategories || !selectedLanguage) {
+      return categories;
+    }
+
+    const languageCategories = allCategories[selectedLanguage];
+    if (!languageCategories) {
+      return categories;
+    }
+
+    return Object.keys(languageCategories)
+      .filter(key => key !== 'other')
+      .map(key => ({
+        key,
+        title: languageCategories[key].title,
+      }))
+      .concat([{
+        key: 'other',
+        title: languageCategories.other ? languageCategories.other.title : 'Other'
+      }]);
+  };
 
   // Update word when initialWord prop changes
   useEffect(() => {
@@ -41,6 +66,11 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
       setWord(initialWord || '');
     }
   }, [visible, initialWord]);
+
+  // Reset selected category when language changes
+  useEffect(() => {
+    setSelectedCategory('');
+  }, [selectedLanguage]);
 
   const handleSave = () => {
     if (!word.trim()) {
@@ -147,7 +177,7 @@ const AddWordModal: React.FC<AddWordModalProps> = ({
               <Text style={styles.label}>Category *</Text>
               <Text style={styles.sublabel}>Select which category this word belongs to</Text>
 
-              {categories.map((category) => (
+              {getDisplayCategories().map((category) => (
                 <TouchableOpacity
                   key={category.key}
                   style={[
