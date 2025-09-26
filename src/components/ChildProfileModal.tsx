@@ -92,14 +92,19 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
       return;
     }
 
-    // Validate birth date (now optional)
-    if (birthDate) {
-      const birthDateValidation = ValidationUtils.validateBirthDate(birthDate.toISOString());
-      if (!birthDateValidation.isValid) {
-        setBirthDateError(birthDateValidation.error || '');
-        Alert.alert('Invalid Birth Date', birthDateValidation.error);
-        return;
-      }
+    // Validate birth date (mandatory)
+    if (!birthDate) {
+      const birthdateRequiredError = 'Birth date is required.';
+      setBirthDateError(birthdateRequiredError);
+      Alert.alert('Birth Date Required', birthdateRequiredError);
+      return;
+    }
+
+    const birthDateValidation = ValidationUtils.validateBirthDate(birthDate.toISOString());
+    if (!birthDateValidation.isValid) {
+      setBirthDateError(birthDateValidation.error || '');
+      Alert.alert('Invalid Birth Date', birthDateValidation.error);
+      return;
     }
 
     // Validate language selection
@@ -203,7 +208,7 @@ const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.label}>Birth Date (Optional)</Text>
+              <Text style={styles.label}>Birth Date *</Text>
               <TouchableOpacity
                 style={[styles.dateButton, birthDateError ? styles.inputError : null]}
                 onPress={() => setShowDatePicker(true)}

@@ -99,18 +99,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   understandingButton: {
-    borderColor: theme.colors.primary,
+    borderColor: '#9bc9b4',
     backgroundColor: theme.colors.background,
   },
   speakingButton: {
-    borderColor: theme.colors.success,
+    borderColor: '#88c3a7',
     backgroundColor: theme.colors.background,
   },
   activeUnderstanding: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#9bc9b4',
   },
   activeSpeaking: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: '#88c3a7',
   },
   toggleText: {
     fontSize: theme.fontSizes.sm,

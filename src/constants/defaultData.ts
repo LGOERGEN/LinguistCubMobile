@@ -405,7 +405,7 @@ export const DEFAULT_PORTUGUESE_CATEGORIES = {
       { word: 'cama', understanding: false, speaking: false, firstSpokenAge: null },
       { word: 'banho', understanding: false, speaking: false, firstSpokenAge: null },
       { word: 'carro', understanding: false, speaking: false, firstSpokenAge: null },
-      { word: 'playground', understanding: false, speaking: false, firstSpokenAge: null }
+      { word: 'parquinho', understanding: false, speaking: false, firstSpokenAge: null }
     ]
   },
   other: {
@@ -611,3 +611,16 @@ export const getDefaultLanguageData = (): LanguageData => ({
   portuguese: DEFAULT_PORTUGUESE_CATEGORIES,
   spanish: DEFAULT_SPANISH_CATEGORIES
 });
+
+export const getDefaultDataForLanguage = (language: 'english' | 'portuguese' | 'spanish') => {
+  switch (language) {
+    case 'english':
+      return DEFAULT_ENGLISH_CATEGORIES;
+    case 'portuguese':
+      return DEFAULT_PORTUGUESE_CATEGORIES;
+    case 'spanish':
+      return DEFAULT_SPANISH_CATEGORIES;
+    default:
+      throw new Error(`Unknown language: ${language}`);
+  }
+};

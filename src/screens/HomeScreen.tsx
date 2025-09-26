@@ -230,6 +230,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           }
         }
 
+        // Detect newly added languages and restore their default data
+        const addedLanguages = languages.filter(
+          lang => !editingChild.selectedLanguages.includes(lang)
+        );
+
+        if (addedLanguages.length > 0) {
+          for (const addedLang of addedLanguages) {
+            await dataService.restoreLanguageData(editingChild.id, addedLang);
+          }
+        }
+
         // If languages were removed and we're currently viewing one of them, reset the view
         if (removedLanguages.includes(expandedLanguage as any)) {
           setExpandedLanguage(null);
@@ -512,9 +523,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       if (!word) {
-        Alert.alert('Error', 'Word not found');
+        console.error('Word not found at index:', wordIndex, 'Array length:', isSearching ? searchResults.length : getFilteredWords().length);
+        console.error('Context - isSearching:', isSearching, 'expandedLanguage:', expandedLanguage, 'wordFilter:', wordFilter);
+        Alert.alert('Error', `Word not found at position ${wordIndex}. Please try refreshing the word list.`);
         return;
       }
+
+      console.log('Word toggle for:', word.word, 'type:', type, 'newValue:', !word[type]);
 
       const newValue = !word[type];
 
@@ -538,8 +553,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               if (index !== -1) {
                 targetCategory = catKey;
                 targetWordIndex = index;
+                console.log('Found word in category:', catKey, 'at index:', index);
                 break;
               }
+            }
+
+            if (!targetCategory || targetWordIndex === -1) {
+              console.error('Failed to find word in any category:', word.word);
+              console.error('Available categories:', Object.keys(categoryData));
+              Alert.alert('Error', 'Unable to locate word in data structure');
+              return;
             }
 
             if (targetCategory && targetWordIndex !== -1) {
@@ -973,9 +996,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const word = filteredWords[wordIndex];
 
     if (!word) {
-      Alert.alert('Error', 'Word not found');
+      console.error('Delete: Word not found at index:', wordIndex, 'Array length:', filteredWords.length);
+      console.error('Delete context - isSearching:', isSearching, 'expandedLanguage:', expandedLanguage);
+      Alert.alert('Error', `Word not found at position ${wordIndex}. Please refresh and try again.`);
       return;
     }
+
+    console.log('Attempting to delete word:', word.word, 'from language:', expandedLanguage);
 
     Alert.alert(
       'Delete Word',
@@ -1000,21 +1027,27 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 if (index !== -1) {
                   targetCategory = catKey;
                   targetWordIndex = index;
+                  console.log('Delete: Found word in category:', catKey, 'at index:', index);
                   break;
                 }
               }
 
               if (targetCategory && targetWordIndex !== -1) {
+                console.log('Delete: Calling removeWord for:', word.word);
                 await dataService.removeWord(
                   activeChild.id,
                   expandedLanguage,
                   targetCategory,
                   targetWordIndex
                 );
+                console.log('Delete: Successfully removed word, refreshing data');
                 await loadData();
                 loadCategoriesForLanguage(expandedLanguage, true);
+                console.log('Delete: Data refresh complete');
               } else {
-                Alert.alert('Error', 'Could not find word to delete');
+                console.error('Delete: Could not find word in any category:', word.word);
+                console.error('Delete: Available categories:', Object.keys(categoryData));
+                Alert.alert('Error', `Could not locate "${word.word}" in the data structure. The word may have been recently modified.`);
               }
             } catch (error) {
               console.error('Error deleting word:', error);
@@ -1257,14 +1290,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {isExpanded && (
           <View style={styles.expandedContent}>
-            <View style={styles.collapseButtonContainer}>
-              <TouchableOpacity
-                onPress={() => setExpandedLanguage(null)}
-                style={styles.collapseButton}
-              >
-                <Text style={styles.collapseButtonText}>✕ Collapse</Text>
-              </TouchableOpacity>
-            </View>
             {renderCategoryTabs(language)}
             {renderWordsListForFilter(language)}
           </View>
@@ -1809,7 +1834,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       )}
 
       {/* Global Search Bar */}
-      {renderGlobalSearchBar()}
+      {activeChild && renderGlobalSearchBar()}
 
       {/* Global Word Filter */}
       {renderGlobalWordFilter()}
@@ -1846,14 +1871,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'english' && (
                     <View style={styles.expandedContent}>
-                      <View style={styles.collapseButtonContainer}>
-                        <TouchableOpacity
-                          onPress={() => setExpandedLanguage(null)}
-                          style={styles.collapseButton}
-                        >
-                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
-                        </TouchableOpacity>
-                      </View>
                       {renderCategoryTabs('english')}
                       {renderWordsList()}
                     </View>
@@ -1877,14 +1894,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'portuguese' && (
                     <View style={styles.expandedContent}>
-                      <View style={styles.collapseButtonContainer}>
-                        <TouchableOpacity
-                          onPress={() => setExpandedLanguage(null)}
-                          style={styles.collapseButton}
-                        >
-                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
-                        </TouchableOpacity>
-                      </View>
                       {renderCategoryTabs('portuguese')}
                       {renderWordsList()}
                     </View>
@@ -1908,14 +1917,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {expandedLanguage === 'spanish' && (
                     <View style={styles.expandedContent}>
-                      <View style={styles.collapseButtonContainer}>
-                        <TouchableOpacity
-                          onPress={() => setExpandedLanguage(null)}
-                          style={styles.collapseButton}
-                        >
-                          <Text style={styles.collapseButtonText}>✕ Collapse</Text>
-                        </TouchableOpacity>
-                      </View>
                       {renderCategoryTabs('spanish')}
                       {renderWordsList()}
                     </View>
@@ -1961,6 +1962,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         allCategories={activeChild?.categories}
       />
       </ScrollView>
+
+      {/* Floating Collapse Button - Fixed to Screen Position */}
+      {expandedLanguage && (
+        <TouchableOpacity
+          style={styles.floatingCollapseButton}
+          onPress={() => setExpandedLanguage(null)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.floatingCollapseIcon}>↑</Text>
+          <Text style={styles.floatingCollapseText}>Close</Text>
+        </TouchableOpacity>
+      )}
     </LinearGradient>
   );
 };
@@ -2678,6 +2691,40 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.sm,
     color: theme.colors.textSecondary,
     fontWeight: '500',
+  },
+  floatingCollapseButton: {
+    position: 'absolute',
+    bottom: theme.spacing.xl,
+    right: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    minWidth: 80,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    zIndex: 1000,
+  },
+  floatingCollapseIcon: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: 'bold',
+    marginRight: theme.spacing.xs,
+  },
+  floatingCollapseText: {
+    fontSize: theme.fontSizes.sm,
+    color: '#ffffff',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

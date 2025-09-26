@@ -34,7 +34,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.linguistcub.mobile",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "infoPlist": {
         "CFBundleDisplayName": "Linguist Cub",
         "NSCameraUsageDescription": "This app uses the camera to take photos for word learning activities.",

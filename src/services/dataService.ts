@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppData, Child, LanguageData } from '../types';
-import { getDefaultLanguageData } from '../constants/defaultData';
+import { getDefaultLanguageData, getDefaultDataForLanguage } from '../constants/defaultData';
 
 const STORAGE_KEY = 'LinguistCubData';
 const STORAGE_VERSION = '1.0.0';
@@ -140,16 +140,29 @@ class DataService {
     wordIndex: number,
     updates: { understanding?: boolean; speaking?: boolean; firstSpokenAge?: number | null }
   ): Promise<void> {
+    console.log('updateWordStatus called:', { childId, language, categoryKey, wordIndex, updates });
+
     if (!this.data || !this.data.children[childId]) {
+      console.error('updateWordStatus: Child not found:', childId);
       throw new Error('Child not found');
     }
 
     const child = this.data.children[childId];
-    const word = child.categories[language][categoryKey]?.words[wordIndex];
+    const category = child.categories[language]?.[categoryKey];
 
-    if (!word) {
-      throw new Error('Word not found');
+    if (!category) {
+      console.error('updateWordStatus: Category not found:', { language, categoryKey });
+      console.error('Available categories:', Object.keys(child.categories[language] || {}));
+      throw new Error(`Category '${categoryKey}' not found in language '${language}'`);
     }
+
+    const word = category.words[wordIndex];
+    if (!word) {
+      console.error('updateWordStatus: Word not found at index:', wordIndex, 'Category has', category.words.length, 'words');
+      throw new Error(`Word not found at index ${wordIndex} in category '${categoryKey}'`);
+    }
+
+    console.log('updateWordStatus: Updating word:', word.word);
 
     // Update word status
     Object.assign(word, updates);
@@ -199,20 +212,35 @@ class DataService {
     categoryKey: string,
     wordIndex: number
   ): Promise<void> {
+    console.log('removeWord called:', { childId, language, categoryKey, wordIndex });
+
     if (!this.data || !this.data.children[childId]) {
+      console.error('removeWord: Child not found:', childId);
       throw new Error('Child not found');
     }
 
     const child = this.data.children[childId];
-    const category = child.categories[language][categoryKey];
+    const category = child.categories[language]?.[categoryKey];
 
-    if (!category || !category.words[wordIndex]) {
-      throw new Error('Word not found');
+    if (!category) {
+      console.error('removeWord: Category not found:', { language, categoryKey });
+      console.error('Available categories:', Object.keys(child.categories[language] || {}));
+      throw new Error(`Category '${categoryKey}' not found in language '${language}'`);
     }
 
+    const wordToRemove = category.words[wordIndex];
+    if (!wordToRemove) {
+      console.error('removeWord: Word not found at index:', wordIndex, 'Category has', category.words.length, 'words');
+      throw new Error(`Word not found at index ${wordIndex} in category '${categoryKey}'`);
+    }
+
+    console.log('removeWord: Removing word:', wordToRemove.word, 'from category:', categoryKey);
     category.words.splice(wordIndex, 1);
+    console.log('removeWord: Word removed, category now has', category.words.length, 'words');
+
     child.lastModified = new Date().toISOString();
     await this.saveData();
+    console.log('removeWord: Data saved successfully');
   }
 
   calculateAgeInMonths(birthDate: string): number {
@@ -277,6 +305,23 @@ class DataService {
     // Remove the language data from child's categories
     if (child.categories[language]) {
       delete child.categories[language];
+    }
+
+    // Update the child's lastModified timestamp
+    child.lastModified = new Date().toISOString();
+
+    await this.saveData();
+  }
+
+  async restoreLanguageData(childId: string, language: 'english' | 'portuguese' | 'spanish'): Promise<void> {
+    if (!this.data) throw new Error('Data not initialized');
+
+    const child = this.data.children[childId];
+    if (!child) throw new Error('Child not found');
+
+    // Only restore if the language data doesn't already exist
+    if (!child.categories[language]) {
+      child.categories[language] = getDefaultDataForLanguage(language);
     }
 
     // Update the child's lastModified timestamp
