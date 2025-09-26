@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linguist Cub - Support</title>
+    <meta name="description" content="Get support for Linguist Cub - Track your child's multilingual language development journey">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #9eb7dd 0%, #88c3a7 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px 20px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: #9eb7dd;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+
+        .logo::before {
+            content: "🐻";
+        }
+
+        h1 {
+            color: #9eb7dd;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .tagline {
+            color: #88c3a7;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #9eb7dd;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, textarea, select {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #9eb7dd;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #9eb7dd, #88c3a7);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .faq-item {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .faq-question {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .faq-answer {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .download-section {
+            grid-column: 1 / -1;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .download-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .download-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #555;
+        }
+
+        .app-store {
+            background: #000;
+        }
+
+        .google-play {
+            background: #01875f;
+        }
+
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo"></div>
+            <h1>Linguist Cub</h1>
+            <p class="subtitle">Support Center</p>
+            <p class="tagline">Trusted by multilingual families worldwide</p>
+        </header>
+
+        <div class="content-grid">
+            <div class="card">
+                <h2>Contact Support</h2>
+                <form class="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+                    <div class="form-group">
+                        <label for="name">Your Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="issue-type">Issue Type</label>
+                        <select id="issue-type" name="issue-type" required>
+                            <option value="">Select an issue type</option>
+                            <option value="bug">Bug Report</option>
+                            <option value="feature">Feature Request</option>
+                            <option value="account">Account Issue</option>
+                            <option value="data">Data Sync Problem</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="device">Device Information</label>
+                        <input type="text" id="device" name="device" placeholder="e.g., iPhone 14, Android Samsung Galaxy">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Describe Your Issue</label>
+                        <textarea id="message" name="message" placeholder="Please provide as much detail as possible..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Send Message</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Frequently Asked Questions</h2>
+
+                <div class="faq-item">
+                    <div class="faq-question">How do I add a new child profile?</div>
+                    <div class="faq-answer">Tap the "+" button on the main screen to create a new child profile. You can customize their name and select which languages they're learning.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Can I track multiple languages for one child?</div>
+                    <div class="faq-answer">Yes! Linguist Cub supports multilingual tracking. Select multiple languages in your child's profile to track their vocabulary development across all languages.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">How do I mark words as 'Understanding' vs 'Speaking'?</div>
+                    <div class="faq-answer">When adding or editing a word, you'll see two buttons. Tap "Understands" if your child comprehends the word, and "Speaks" if they can say it aloud.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Is my data safe and private?</div>
+                    <div class="faq-answer">Absolutely. All your child's data is stored securely and privately. We never share personal information with third parties.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Can I export my child's language data?</div>
+                    <div class="faq-answer">Yes, you can export your child's vocabulary progress and statistics from the app settings menu.</div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">The app won't sync between devices. What should I do?</div>
+                    <div class="faq-answer">Make sure you're logged into the same account on both devices and have a stable internet connection. If issues persist, contact support.</div>
+                </div>
+            </div>
+
+            <div class="download-section">
+                <h2>Download Linguist Cub</h2>
+                <p>Track your baby's vocabulary development across multiple languages</p>
+                <div class="download-buttons">
+                    <a href="#" class="download-btn app-store">Download for iOS</a>
+                    <a href="#" class="download-btn google-play">Download for Android</a>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>&copy; 2024 Linguist Cub. All rights reserved.</p>
+            <p>Growing together, word by word.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Form submission handling
+        document.querySelector('.contact-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Simple form validation
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const message = document.getElementById('message').value;
+
+            if (!name || !email || !message) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            // In a real implementation, you'd send this to your backend
+            alert('Thank you for your message! We\'ll get back to you within 24 hours.');
+            this.reset();
+        });
+    </script>
+</body>
+</html>
