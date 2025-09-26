@@ -34,14 +34,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.linguistcub.mobile",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "CFBundleDisplayName": "Linguist Cub",
         "NSCameraUsageDescription": "This app uses the camera to take photos for word learning activities.",
         "NSMicrophoneUsageDescription": "This app uses the microphone to record pronunciation practice.",
         "NSPhotoLibraryUsageDescription": "This app accesses photos to help with word learning activities.",
         "CFBundleShortVersionString": "1.0.0",
-        "CFBundleVersion": "8",
+        "CFBundleVersion": "10",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education"
       },
